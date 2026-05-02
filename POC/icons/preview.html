@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>noteaerator — icon options</title>
+  <style>
+    body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+           background: #f8fafc; color: #0f172a; margin: 0; padding: 32px; }
+    h1 { margin-top: 0; }
+    p { color: #475569; max-width: 60ch; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
+    .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; }
+    .card h2 { margin: 0 0 12px 0; font-size: 16px; }
+    .sizes { display: flex; align-items: center; gap: 24px; margin-bottom: 12px; }
+    .sizes figure { margin: 0; text-align: center; }
+    .sizes figcaption { font-size: 11px; color: #64748b; margin-top: 4px; }
+    .sizes img.big { width: 128px; height: 128px; border-radius: 12px; }
+    .sizes img.med { width: 64px; height: 64px; border-radius: 8px; }
+    .sizes img.sm  { width: 32px; height: 32px; border-radius: 4px; }
+    .sizes img.tiny{ width: 16px; height: 16px; }
+    .desc { font-size: 13px; color: #334155; }
+    .file { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <h1>noteaerator — icon options</h1>
+  <p>Ten directions to choose from. Each is shown at 128 / 64 / 32 / 16 px so you
+     can judge how it survives at small sizes (taskbar, alt-tab, file explorer).
+     Tell me the number you like and I'll wire it into the WPF project as
+     <code>app.ico</code> with all the standard ICO sizes.</p>
+  <div class="grid">
+    <!-- entries injected via script for brevity -->
+  </div>
+  <script>
+    const items = [
+      ['01-bubble-note',     'Bubble Note',      'A page with bubbles aerating up out of it. Literal nod to the name.'],
+      ['02-whisk-page',      'Whisk Page',       'A kitchen whisk (an aerator) over a page. Most literal interpretation.'],
+      ['03-sparkle-note',    'Sparkle Note',     'Page with AI sparkles — friendly Copilot vibe.'],
+      ['04-wind-lift',       'Wind Lift',        'Page being lifted by a gust of wind. Implies movement and freshness.'],
+      ['05-sprout-page',     'Sprout Page',      'Leaf growing out of a page. "Letting ideas breathe."'],
+      ['06-fizzy-note',      'Fizzy Note',       'Carbonation rising in a tilted glass-shaped page. Playful.'],
+      ['07-balloon-page',    'Balloon Page',     'Hot-air balloon lifting a note. "Aerator" as in lift.'],
+      ['08-breathing-n',     'Breathing N',      'Bold typographic N with concentric breath rings. Modern monogram.'],
+      ['09-robot-reader',    'Robot Reader',     'Friendly bot holding a note. Most explicitly AI-themed.'],
+      ['10-thought-cloud',   'Thought Cloud',    'A checked todo with a thinking cloud. Leans into the task-tracking side.'],
+      ['11-wine-glass',      'Wine Glass',       'Wine glass with bubbles rising. Classy take on aeration.'],
+      ['12-decanter',        'Decanter',         'A wine decanter — the literal aerator. Probably the cleverest pun.'],
+      ['13-champagne-flute', 'Champagne Flute',  'Slim flute with a rising column of bubbles. Celebratory.'],
+      ['14-paper-plane',     'Paper Plane',      'A folded note taking flight. Movement + paper.'],
+      ['15-quill-sparkle',   'Quill Sparkle',    'A quill pen with AI sparkles. Writing meets Copilot.'],
+      ['16-steam-mug',       'Steam Mug',        'A mug whose body is a page, with steam curling up. Cozy work vibe.'],
+    ];
+    const grid = document.querySelector('.grid');
+    for (const [file, title, desc] of items) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <h2>${title}</h2>
+        <div class="sizes">
+          <figure><img class="big"  src="${file}.svg"/><figcaption>128</figcaption></figure>
+          <figure><img class="med"  src="${file}.svg"/><figcaption>64</figcaption></figure>
+          <figure><img class="sm"   src="${file}.svg"/><figcaption>32</figcaption></figure>
+          <figure><img class="tiny" src="${file}.svg"/><figcaption>16</figcaption></figure>
+        </div>
+        <div class="desc">${desc}</div>
+        <div class="file">${file}.svg</div>
+      `;
+      grid.appendChild(card);
+    }
+  </script>
+</body>
+</html>

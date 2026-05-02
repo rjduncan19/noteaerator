@@ -1,0 +1,18 @@
+# Transient / scratch space — not synced, not committed
+.tmp/
+**/node_modules/
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+
+# .NET build output
+**/bin/
+**/obj/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/

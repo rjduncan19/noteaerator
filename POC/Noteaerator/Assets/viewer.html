@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>noteaerator viewer</title>
+
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.5.1/github-markdown-light.css" />
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/github.min.css" />
+
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --accent: #7f1d1d;
+      --accent-soft: #fee2e2;
+      --border: #e2e8f0;
+      --comment-yellow: #fff8c5;
+      --comment-yellow-border: #d4a72c;
+    }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      font-family: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont,
+                   Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    .markdown-body {
+      box-sizing: border-box;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 36px 56px 96px 56px;
+      background: var(--surface);
+      min-height: 100vh;
+      box-shadow: 0 0 0 1px var(--border);
+      position: relative;       /* containing block for overlays */
+      overflow: visible;        /* let overlays extend into side margins */
+    }
+    .markdown-body h1 { border-bottom: 2px solid var(--accent-soft); padding-bottom: 8px; }
+    .markdown-body a { color: var(--accent); }
+    .markdown-body code { background: #f1f5f9; padding: 2px 5px; border-radius: 4px; font-size: 0.92em; }
+    .markdown-body pre  { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; }
+    .markdown-body blockquote { border-left: 4px solid var(--accent-soft); color: var(--muted); }
+    .markdown-body table { border-collapse: collapse; }
+    .markdown-body th, .markdown-body td { border: 1px solid var(--border); padding: 6px 12px; }
+    .markdown-body th { background: #f8fafc; }
+
+    /* Subtle hover highlight on anchored rows / list items so the user knows
+       what the next "+" or right-click will target. */
+    .markdown-body tr[data-anchor]:hover { background: #fffbeb; }
+    .markdown-body li[data-anchor]:hover { background: #fffbeb; border-radius: 4px; }
+    .markdown-body [data-anchor].anchor-flash {
+      outline: 2px solid var(--comment-yellow-border);
+      outline-offset: -2px;
+      transition: outline-color 0.4s ease;
+    }
+
+    /* Inline @ai HTML comment markers (kept; humans may still write them). */
+    .ai-comment {
+      display: block;
+      background: var(--comment-yellow);
+      border-left: 4px solid var(--comment-yellow-border);
+      padding: 10px 14px; margin: 12px 0; border-radius: 6px;
+      color: #57430a;
+    }
+    .ai-comment::before { content: "💬 @ai: "; font-weight: 600; }
+    .ai-done {
+      display: block;
+      background: #dafbe1;
+      border-left: 4px solid #2da44e;
+      padding: 10px 14px; margin: 12px 0; border-radius: 6px;
+      color: #1a7f37;
+    }
+    .ai-done::before { content: "✅ @ai-done: "; font-weight: 600; }
+
+    /* ---------------- Overlay layer (comments + add buttons + input) ---------------- */
+    .comment-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;     /* layer is transparent to clicks */
+      z-index: 10;
+    }
+    .comment-overlay > * { pointer-events: auto; position: absolute; }
+
+    /* "+" margin button — uniform position regardless of element type */
+    .add-comment-btn {
+      left: 18px;               /* sits inside markdown-body's left padding */
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-size: 16px; line-height: 18px;
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(-50%);
+      transition: opacity 0.12s ease, background 0.12s ease;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      user-select: none;
+    }
+    .add-comment-btn.visible { opacity: 1; }
+    .add-comment-btn:hover  { background: var(--accent-soft); border-color: var(--accent); }
+
+    /* Comment cards float in the right margin, semi-transparent. */
+    .sidecar-comment {
+      left: calc(100% - 0px);  /* anchored to right edge of markdown-body */
+      margin-left: 12px;
+      width: 240px;
+      background: rgba(255, 248, 197, 0.93);
+      backdrop-filter: blur(2px);
+      border: 1px solid #f1e3a3;
+      border-left: 4px solid var(--comment-yellow-border);
+      padding: 8px 28px 8px 12px;
+      border-radius: 6px;
+      color: #57430a;
+      font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+      font-size: 12.5px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .sidecar-comment .meta {
+      display: block;
+      font-size: 10.5px;
+      color: #8a6a0c;
+      margin-bottom: 3px;
+      font-family: ui-monospace, Consolas, monospace;
+    }
+    .sidecar-comment .sub {
+      display: inline-block;
+      background: var(--accent);
+      color: white;
+      padding: 0 6px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-right: 5px;
+      vertical-align: 1px;
+      text-transform: lowercase;
+    }
+    .sidecar-comment .delete-btn {
+      position: absolute;
+      top: 4px; right: 6px;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      color: #8a6a0c;
+      font-size: 15px;
+      line-height: 1;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .sidecar-comment .delete-btn:hover {
+      background: rgba(212, 167, 44, 0.25);
+      color: var(--accent);
+    }
+    /* Leader line from the anchor to the comment card */
+    .sidecar-comment::before {
+      content: "";
+      position: absolute;
+      left: -16px; top: 12px;
+      width: 16px; height: 0;
+      border-top: 2px dashed var(--comment-yellow-border);
+      opacity: 0.7;
+    }
+
+    /* Stale comments (no anchor found) — rendered in normal flow at the bottom */
+    .stale-comments {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 2px dashed var(--border);
+    }
+    .stale-comments h3 { color: var(--accent); }
+    .stale-comments .sidecar-comment {
+      position: static;
+      width: auto;
+      margin: 8px 0;
+      backdrop-filter: none;
+    }
+    .stale-comments .sidecar-comment::before { display: none; }
+
+    /* Custom right-click context menu (UX option A) */
+    .ctx-menu {
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 0;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.14);
+      z-index: 1000;
+      font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+      font-size: 13px;
+      min-width: 200px;
+    }
+    .ctx-menu .item { padding: 6px 14px; cursor: pointer; color: var(--ink); }
+    .ctx-menu .item:hover { background: var(--accent-soft); color: var(--accent); }
+    .ctx-menu .target-hint {
+      padding: 4px 14px 6px;
+      font-size: 11px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+
+    /* Inline comment input — positioned overlay, semi-transparent, anchored to the right */
+    .comment-input {
+      left: calc(100% - 0px);
+      margin-left: 12px;
+      width: 280px;
+      background: rgba(255, 251, 235, 0.97);
+      backdrop-filter: blur(3px);
+      border: 1px solid var(--comment-yellow-border);
+      border-radius: 6px;
+      padding: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      z-index: 20;
+    }
+    .comment-input textarea {
+      width: 100%;
+      min-height: 70px;
+      box-sizing: border-box;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px;
+      font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+      font-size: 13px;
+      resize: vertical;
+      outline: none;
+    }
+    .comment-input textarea:focus { border-color: var(--accent); }
+    .comment-input .actions {
+      display: flex; gap: 8px; justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .comment-input button {
+      padding: 5px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+      font-family: inherit; font-size: 12px;
+    }
+    .comment-input button.primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .comment-input button:hover { background: var(--accent-soft); }
+    .comment-input button.primary:hover { background: #991b1b; color: white; }
+    .comment-input .hint {
+      font-size: 11px; color: var(--muted); margin-top: 4px;
+    }
+
+    .render-error {
+      color: #b91c1c;
+      background: #fee2e2;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-family: ui-monospace, Consolas, monospace;
+    }
+    .empty {
+      color: var(--muted);
+      text-align: center;
+      margin-top: 80px;
+      font-style: italic;
+    }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body>
+  <article id="content" class="markdown-body">
+    <p class="empty">No file loaded.</p>
+  </article>
+
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it-task-lists@2.1.1/dist/markdown-it-task-lists.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/lib/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js"></script>
+
+  <script>
+    (function () {
+      const md = window.markdownit({
+        html: true, linkify: true, typographer: true,
+        highlight: function (str, lang) {
+          if (lang === 'mermaid') {
+            return '<pre class="mermaid">' + escapeHtml(str) + '</pre>';
+          }
+          if (lang && window.hljs && hljs.getLanguage(lang)) {
+            try {
+              return '<pre><code class="hljs language-' + lang + '">' +
+                     hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                     '</code></pre>';
+            } catch (_) {}
+          }
+          return '<pre><code class="hljs">' + escapeHtml(str) + '</code></pre>';
+        }
+      });
+      if (window.markdownitTaskLists) md.use(window.markdownitTaskLists, { enabled: true });
+
+      function escapeHtml(s) {
+        return s.replace(/[&<>"']/g, c => ({
+          '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        })[c]);
+      }
+      function slugify(text) {
+        return text.toLowerCase().trim()
+          .replace(/[^\w\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .substring(0, 64);
+      }
+
+      function transformAiComments(html) {
+        return html
+          .replace(/<!--\s*@ai:\s*([\s\S]*?)\s*-->/gi,
+            (_, body) => '<div class="ai-comment">' + escapeHtml(body) + '</div>')
+          .replace(/<!--\s*@ai-done:\s*([\s\S]*?)\s*-->/gi,
+            (_, body) => '<div class="ai-done">' + escapeHtml(body) + '</div>');
+      }
+
+      if (window.mermaid) {
+        mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+      }
+
+      const ANCHORABLE = new Set(['H1','H2','H3','H4','H5','H6','P','UL','OL','BLOCKQUOTE','PRE','TABLE','HR','DL']);
+
+      // Annotate top-level blocks + sub-anchors (tr / li).
+      function annotateAnchors(root) {
+        let currentSlug = '';
+        let blockIndex = 0;
+        for (const child of Array.from(root.children)) {
+          if (!ANCHORABLE.has(child.tagName)) continue;
+          if (/^H[1-6]$/.test(child.tagName)) {
+            currentSlug = slugify(child.textContent || '');
+            blockIndex = 0;
+          }
+          const baseAnchor = (currentSlug || '__top__') + ':' + blockIndex;
+          child.dataset.anchor = baseAnchor;
+          child.dataset.headingSlug = currentSlug;
+          child.dataset.blockIndex = String(blockIndex);
+          child.dataset.subPath = '';
+
+          if (child.tagName === 'TABLE') {
+            child.querySelectorAll('tr').forEach((tr, i) => {
+              tr.dataset.anchor = baseAnchor + ':tr:' + i;
+              tr.dataset.headingSlug = currentSlug;
+              tr.dataset.blockIndex = String(blockIndex);
+              tr.dataset.subPath = 'tr:' + i;
+            });
+          } else if (child.tagName === 'UL' || child.tagName === 'OL') {
+            Array.from(child.children)
+              .filter(c => c.tagName === 'LI')
+              .forEach((li, i) => {
+                li.dataset.anchor = baseAnchor + ':li:' + i;
+                li.dataset.headingSlug = currentSlug;
+                li.dataset.blockIndex = String(blockIndex);
+                li.dataset.subPath = 'li:' + i;
+              });
+          }
+          blockIndex++;
+        }
+      }
+
+      function findAnchoredElement(root, anchor) {
+        if (!anchor) return null;
+        const slug = anchor.headingSlug || '';
+        const idx  = anchor.blockIndex ?? 0;
+        const sub  = anchor.subPath || '';
+        const baseSel = (slug || '__top__') + ':' + idx;
+        const fullSel = sub ? (baseSel + ':' + sub) : baseSel;
+        let el = root.querySelector(`[data-anchor="${fullSel.replace(/"/g,'\\"')}"]`);
+        if (el) return el;
+        if (sub) {
+          el = root.querySelector(`[data-anchor="${baseSel.replace(/"/g,'\\"')}"]`);
+          if (el) return el;
+        }
+        if (anchor.textQuote) {
+          const needle = anchor.textQuote.trim().slice(0, 60).toLowerCase();
+          for (const c of root.querySelectorAll('[data-anchor]')) {
+            if ((c.textContent || '').toLowerCase().includes(needle)) return c;
+          }
+        }
+        if (slug) {
+          el = root.querySelector(`[data-heading-slug="${slug.replace(/"/g,'\\"')}"]`);
+          if (el) return el;
+        }
+        return null;
+      }
+
+      function subPathBadge(subPath) {
+        if (!subPath) return '';
+        const m = /^(tr|li):(\d+)$/.exec(subPath);
+        if (!m) return '';
+        const kind = m[1] === 'tr' ? 'row' : 'item';
+        return `<span class="sub">${kind} ${parseInt(m[2], 10) + 1}</span>`;
+      }
+
+      function postMsg(obj) {
+        try { window.chrome.webview.postMessage(obj); }
+        catch (e) { console.error('postMessage failed', e); }
+      }
+
+      function anchorOf(el) {
+        return {
+          headingSlug: el.dataset.headingSlug || '',
+          blockIndex: parseInt(el.dataset.blockIndex || '0', 10),
+          subPath: el.dataset.subPath || '',
+          textQuote: (el.textContent || '').trim().slice(0, 80)
+        };
+      }
+
+      // -------------------- Overlay layout --------------------
+
+      let _root, _comments;
+
+      function layoutOverlays() {
+        const root = _root;
+        if (!root) return;
+        // Wipe and rebuild the overlay layer (cheap; everything is computed).
+        let overlay = root.querySelector(':scope > .comment-overlay');
+        if (overlay) overlay.remove();
+        overlay = document.createElement('div');
+        overlay.className = 'comment-overlay';
+        root.appendChild(overlay);
+
+        const rootRect = root.getBoundingClientRect();
+
+        // 1. + buttons for every anchored element.
+        const anchored = Array.from(root.querySelectorAll('[data-anchor]'));
+        for (const el of anchored) {
+          const r = el.getBoundingClientRect();
+          const center = r.top - rootRect.top + r.height / 2;
+          const btn = document.createElement('button');
+          btn.className = 'add-comment-btn';
+          btn.title = el.tagName === 'TR' ? 'Add comment on this row'
+                    : el.tagName === 'LI' ? 'Add comment on this item'
+                    : 'Add comment here';
+          btn.textContent = '+';
+          btn.style.top = center + 'px';
+          btn.dataset.forAnchor = el.dataset.anchor;
+          overlay.appendChild(btn);
+
+          btn.addEventListener('click', (e) => { e.stopPropagation(); openCommentInput(el); });
+
+          let hideTimer = 0;
+          const show = () => { clearTimeout(hideTimer); btn.classList.add('visible'); };
+          const hideSoon = () => { clearTimeout(hideTimer);
+                                   hideTimer = setTimeout(() => btn.classList.remove('visible'), 150); };
+          el.addEventListener('mouseenter', show);
+          el.addEventListener('mouseleave', hideSoon);
+          btn.addEventListener('mouseenter', show);
+          btn.addEventListener('mouseleave', hideSoon);
+        }
+
+        // 2. Comment cards in the right margin, anchored to their target's top.
+        //    Stack multiple comments per anchor vertically with a small gap.
+        const stale = [];
+        const cardsPerAnchor = new Map();
+        for (const c of (_comments || [])) {
+          const a = findAnchoredElement(root, c.anchor || {});
+          if (!a) { stale.push(c); continue; }
+          if (!cardsPerAnchor.has(a)) cardsPerAnchor.set(a, []);
+          cardsPerAnchor.get(a).push(c);
+        }
+        for (const [anchor, cs] of cardsPerAnchor) {
+          const r = anchor.getBoundingClientRect();
+          let top = r.top - rootRect.top;
+          for (const c of cs) {
+            const card = buildCommentCard(c);
+            card.style.top = top + 'px';
+            overlay.appendChild(card);
+            // Measure now that it's in the DOM and increment for next stack.
+            top += card.offsetHeight + 8;
+          }
+        }
+
+        // 3. Stale comments — append in normal flow at the end (outside overlay).
+        let staleSection = root.querySelector(':scope > .stale-comments');
+        if (staleSection) staleSection.remove();
+        if (stale.length) {
+          staleSection = document.createElement('section');
+          staleSection.className = 'stale-comments';
+          const h = document.createElement('h3');
+          h.textContent = '🪣 Stale comments (anchors no longer found)';
+          staleSection.appendChild(h);
+          for (const c of stale) staleSection.appendChild(buildCommentCard(c));
+          root.appendChild(staleSection);
+        }
+      }
+
+      function buildCommentCard(c) {
+        const div = document.createElement('div');
+        div.className = 'sidecar-comment';
+        div.dataset.commentId = c.id;
+        const dt = (c.createdAt || '').replace('T',' ').slice(0, 16);
+        div.innerHTML =
+          '<span class="meta">' + escapeHtml(dt) + '</span>' +
+          subPathBadge((c.anchor && c.anchor.subPath) || '') +
+          escapeHtml(c.body || '') +
+          '<button class="delete-btn" title="Delete this comment">×</button>';
+        div.querySelector('.delete-btn').addEventListener('click', () => {
+          if (confirm('Delete this comment?')) {
+            postMsg({ action: 'deleteComment', id: c.id });
+          }
+        });
+        return div;
+      }
+
+      // Inline comment input — also overlay-positioned, anchored to the right of the target.
+      function openCommentInput(targetEl) {
+        const root = _root;
+        if (!root) return;
+        const overlay = root.querySelector(':scope > .comment-overlay');
+        if (!overlay) return;
+
+        const existing = overlay.querySelector('.comment-input');
+        if (existing) { existing.querySelector('textarea').focus(); return; }
+
+        const rootRect = root.getBoundingClientRect();
+        const r = targetEl.getBoundingClientRect();
+        const top = r.top - rootRect.top;
+
+        // Brief flash on the target so it's clear what we're commenting on.
+        targetEl.classList.add('anchor-flash');
+        setTimeout(() => targetEl.classList.remove('anchor-flash'), 700);
+
+        const box = document.createElement('div');
+        box.className = 'comment-input';
+        box.style.top = top + 'px';
+        const sub = targetEl.dataset.subPath || '';
+        const subLabel = sub ? subPathBadge(sub) + ' ' : '';
+        box.innerHTML =
+          '<div class="hint" style="margin-bottom:6px">' + subLabel +
+          'Comment will be anchored to this ' +
+          (targetEl.tagName === 'TR' ? 'row'
+           : targetEl.tagName === 'LI' ? 'list item'
+           : 'block') + '.</div>' +
+          '<textarea placeholder="Write a comment..."></textarea>' +
+          '<div class="hint">Saved to <code>&lt;file&gt;-comments.json</code> next to this note. ' +
+          'Agents read &amp; remove these.</div>' +
+          '<div class="actions">' +
+            '<button class="cancel">Cancel</button>' +
+            '<button class="primary save">Save (Ctrl+Enter)</button>' +
+          '</div>';
+        overlay.appendChild(box);
+        const ta = box.querySelector('textarea');
+        ta.focus();
+
+        const close = () => box.remove();
+        const save = () => {
+          const body = ta.value.trim();
+          if (!body) { close(); return; }
+          postMsg({ action: 'addComment', body, anchor: anchorOf(targetEl) });
+          close();
+        };
+        box.querySelector('.cancel').addEventListener('click', close);
+        box.querySelector('.save').addEventListener('click', save);
+        ta.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') { e.preventDefault(); close(); }
+          else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); }
+        });
+      }
+
+      // -------------------- Right-click context menu --------------------
+
+      let ctxMenuEl = null;
+      function hideCtxMenu() { if (ctxMenuEl) { ctxMenuEl.remove(); ctxMenuEl = null; } }
+      function showCtxMenu(x, y, target, items) {
+        hideCtxMenu();
+        const menu = document.createElement('div');
+        menu.className = 'ctx-menu';
+        if (target) {
+          const hint = document.createElement('div');
+          hint.className = 'target-hint';
+          hint.textContent = target.tagName === 'TR' ? 'On row '   + (parseInt(target.dataset.subPath.split(':')[1], 10) + 1)
+                          : target.tagName === 'LI' ? 'On item '  + (parseInt(target.dataset.subPath.split(':')[1], 10) + 1)
+                          : 'On ' + target.tagName.toLowerCase();
+          menu.appendChild(hint);
+        }
+        for (const it of items) {
+          const el = document.createElement('div');
+          el.className = 'item';
+          el.textContent = it.label;
+          el.addEventListener('click', () => { hideCtxMenu(); it.action(); });
+          menu.appendChild(el);
+        }
+        menu.style.left = Math.min(x, window.innerWidth - 220) + 'px';
+        menu.style.top  = Math.min(y, window.innerHeight - 80)  + 'px';
+        document.body.appendChild(menu);
+        ctxMenuEl = menu;
+      }
+      document.addEventListener('click', hideCtxMenu);
+      document.addEventListener('scroll', hideCtxMenu, true);
+
+      document.addEventListener('contextmenu', (e) => {
+        const article = document.getElementById('content');
+        if (!article || !article.contains(e.target)) return;
+        let el = e.target;
+        while (el && el !== article && !(el.dataset && el.dataset.anchor)) el = el.parentElement;
+        if (!el || el === article) return;
+        e.preventDefault();
+        showCtxMenu(e.clientX, e.clientY, el, [
+          { label: '💬 Add comment here', action: () => openCommentInput(el) }
+        ]);
+      });
+
+      // -------------------- Re-layout triggers --------------------
+
+      let _ro = null;
+      let _rafId = 0;
+      function scheduleLayout() {
+        cancelAnimationFrame(_rafId);
+        _rafId = requestAnimationFrame(layoutOverlays);
+      }
+
+      // -------------------- Main render entry point --------------------
+
+      window.renderMarkdown = async function (markdownText, commentFile) {
+        const root = document.getElementById('content');
+        _root = root;
+        _comments = (commentFile && Array.isArray(commentFile.comments)) ? commentFile.comments : [];
+        const scrollY = window.scrollY;
+        try {
+          // Render the base content (no overlay yet).
+          const rendered = transformAiComments(md.render(markdownText || ''));
+          root.innerHTML = rendered || '<p class="empty">(empty file)</p>';
+
+          annotateAnchors(root);
+
+          // Initial overlay layout (mermaid not yet rendered).
+          layoutOverlays();
+
+          if (window.mermaid) {
+            const blocks = root.querySelectorAll('pre.mermaid');
+            blocks.forEach(b => { b.textContent = b.textContent; });
+            try {
+              await mermaid.run({ nodes: blocks });
+            } catch (e) {
+              const err = document.createElement('div');
+              err.className = 'render-error';
+              err.textContent = 'mermaid error: ' + (e && e.message || e);
+              root.appendChild(err);
+            }
+            // Mermaid changes block heights; re-layout.
+            scheduleLayout();
+          }
+
+          // Watch for any subsequent size changes (window resize, font load, etc.)
+          if (_ro) { try { _ro.disconnect(); } catch {} }
+          _ro = new ResizeObserver(scheduleLayout);
+          _ro.observe(root);
+
+          // Restore scroll position so add/delete doesn't jerk the view.
+          window.scrollTo(0, scrollY);
+        } catch (e) {
+          root.innerHTML = '<div class="render-error">render error: ' +
+                           escapeHtml(String(e && e.message || e)) + '</div>';
+        }
+      };
+    })();
+  </script>
+</body>
+</html>

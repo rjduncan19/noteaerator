@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>14 Paper Plane — folded note taking flight</title>
+  <rect width="256" height="256" rx="48" fill="#bae6fd"/>
+  <g transform="translate(40,60)" stroke="#0c4a6e" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <!-- plane body -->
+    <path d="M0 80 L180 0 L120 140 L100 90 Z" fill="#ffffff"/>
+    <!-- inner fold -->
+    <path d="M0 80 L100 90 L180 0" fill="none"/>
+  </g>
+  <g fill="none" stroke="#0c4a6e" stroke-width="4" stroke-linecap="round" opacity="0.6">
+    <path d="M30 200 Q90 180 50 160"/>
+    <path d="M70 220 Q130 200 90 180"/>
+  </g>
+</svg>

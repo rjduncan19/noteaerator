@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>04 Wind Lift — page being lifted by gust</title>
+  <rect width="256" height="256" rx="48" fill="#dbeafe"/>
+  <g transform="translate(70,60) rotate(-8)">
+    <rect width="130" height="160" rx="8" fill="#ffffff" stroke="#1e3a8a" stroke-width="5"/>
+    <line x1="18" y1="36" x2="112" y2="36" stroke="#1e3a8a" stroke-width="4" stroke-linecap="round"/>
+    <line x1="18" y1="60" x2="112" y2="60" stroke="#1e3a8a" stroke-width="4" stroke-linecap="round"/>
+    <line x1="18" y1="84" x2="80"  y2="84" stroke="#1e3a8a" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <g fill="none" stroke="#1e3a8a" stroke-width="6" stroke-linecap="round">
+    <path d="M40 80 Q70 60 50 50"/>
+    <path d="M30 130 Q60 110 40 100"/>
+    <path d="M35 180 Q65 160 45 150"/>
+  </g>
+</svg>

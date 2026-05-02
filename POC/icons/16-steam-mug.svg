@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>16 Steam Mug — notebook-mug with curling steam</title>
+  <rect width="256" height="256" rx="48" fill="#fef3c7"/>
+  <g transform="translate(56,90)" stroke="#0f172a" stroke-width="5" stroke-linejoin="round">
+    <!-- mug -->
+    <path d="M0 0 L120 0 L110 130 L10 130 Z" fill="#ffffff"/>
+    <!-- handle -->
+    <path d="M120 20 Q160 30 160 60 Q160 90 120 100" fill="none"/>
+    <!-- "page" lines on the mug -->
+    <line x1="20" y1="40" x2="100" y2="40" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+    <line x1="20" y1="64" x2="100" y2="64" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+    <line x1="20" y1="88" x2="70"  y2="88" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <g fill="none" stroke="#0f172a" stroke-width="5" stroke-linecap="round" opacity="0.8">
+    <path d="M88 80 Q108 60 88 40 Q68 20 88 0"/>
+    <path d="M128 80 Q148 60 128 40 Q108 20 128 0"/>
+    <path d="M168 80 Q188 60 168 40 Q148 20 168 0"/>
+  </g>
+</svg>

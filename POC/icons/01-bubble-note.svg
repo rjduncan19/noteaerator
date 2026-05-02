@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>01 Bubble Note — paper with bubbles aerating up</title>
+  <rect width="256" height="256" rx="48" fill="#0f766e"/>
+  <g transform="translate(56,72)">
+    <rect x="0" y="0" width="120" height="150" rx="8" fill="#fef9c3" stroke="#0f172a" stroke-width="4"/>
+    <line x1="16" y1="32" x2="104" y2="32" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+    <line x1="16" y1="56" x2="104" y2="56" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+    <line x1="16" y1="80" x2="80"  y2="80" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <g fill="#a7f3d0" stroke="#0f172a" stroke-width="3">
+    <circle cx="180" cy="60" r="14"/>
+    <circle cx="210" cy="100" r="9"/>
+    <circle cx="160" cy="40" r="7"/>
+    <circle cx="195" cy="35" r="5"/>
+  </g>
+</svg>

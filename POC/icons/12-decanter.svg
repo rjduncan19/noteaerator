@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>12 Decanter — wine decanter, the literal aerator</title>
+  <rect width="256" height="256" rx="48" fill="#1e293b"/>
+  <g transform="translate(64,30)" stroke="#fef3c7" stroke-width="5" stroke-linejoin="round" fill="none">
+    <!-- neck -->
+    <path d="M52 0 L76 0 L76 60 Q128 100 128 160 Q128 200 64 200 Q0 200 0 160 Q0 100 52 60 Z" fill="#7f1d1d"/>
+    <!-- wine fill highlight -->
+    <path d="M14 130 Q64 110 114 130 Q128 160 64 188 Q0 160 14 130 Z" fill="#b91c1c" stroke="none"/>
+    <!-- mouth -->
+    <ellipse cx="64" cy="0" rx="14" ry="5" fill="#fef3c7" stroke="none"/>
+  </g>
+  <g fill="#fef3c7" opacity="0.85">
+    <circle cx="105" cy="42" r="4"/>
+    <circle cx="118" cy="28" r="3"/>
+    <circle cx="135" cy="40" r="3"/>
+  </g>
+</svg>

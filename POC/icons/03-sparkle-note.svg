@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>03 Sparkle Note — page with AI sparkles</title>
+  <rect width="256" height="256" rx="48" fill="#1e1b4b"/>
+  <g transform="translate(48,56)">
+    <rect width="140" height="170" rx="10" fill="#f5f3ff" stroke="#1e1b4b" stroke-width="4"/>
+    <line x1="20" y1="40" x2="120" y2="40" stroke="#312e81" stroke-width="4" stroke-linecap="round"/>
+    <line x1="20" y1="64" x2="120" y2="64" stroke="#312e81" stroke-width="4" stroke-linecap="round"/>
+    <line x1="20" y1="88" x2="80"  y2="88" stroke="#312e81" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <g fill="#fbbf24">
+    <path d="M200 50 L208 70 L228 78 L208 86 L200 106 L192 86 L172 78 L192 70 Z"/>
+    <path d="M170 130 L175 142 L187 147 L175 152 L170 164 L165 152 L153 147 L165 142 Z"/>
+    <path d="M218 150 L222 158 L230 162 L222 166 L218 174 L214 166 L206 162 L214 158 Z"/>
+  </g>
+</svg>

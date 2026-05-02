@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>15 Quill Sparkle — quill writing with AI sparkles</title>
+  <rect width="256" height="256" rx="48" fill="#f5f3ff"/>
+  <g transform="translate(40,40) rotate(-10)" stroke="#3b0764" stroke-width="5" stroke-linejoin="round">
+    <!-- feather -->
+    <path d="M0 160 L120 30 Q150 0 175 25 L90 110 Q60 140 30 160 Z" fill="#a78bfa"/>
+    <!-- spine -->
+    <line x1="10" y1="155" x2="160" y2="20" stroke="#3b0764" stroke-width="3"/>
+    <!-- nib -->
+    <path d="M0 160 L-10 175 L8 175 Z" fill="#0f172a"/>
+  </g>
+  <g fill="#fbbf24">
+    <path d="M200 60 L206 76 L222 82 L206 88 L200 104 L194 88 L178 82 L194 76 Z"/>
+    <path d="M180 130 L184 140 L194 144 L184 148 L180 158 L176 148 L166 144 L176 140 Z"/>
+  </g>
+</svg>

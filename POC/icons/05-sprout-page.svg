@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>05 Sprout Page — leaf growing from a page</title>
+  <rect width="256" height="256" rx="48" fill="#ecfccb"/>
+  <g transform="translate(58,90)">
+    <rect width="140" height="140" rx="8" fill="#ffffff" stroke="#365314" stroke-width="5"/>
+    <line x1="20" y1="32" x2="120" y2="32" stroke="#365314" stroke-width="4" stroke-linecap="round"/>
+    <line x1="20" y1="56" x2="120" y2="56" stroke="#365314" stroke-width="4" stroke-linecap="round"/>
+    <line x1="20" y1="80" x2="80"  y2="80" stroke="#365314" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(128,20)">
+    <line x1="0" y1="0" x2="0" y2="80" stroke="#365314" stroke-width="6" stroke-linecap="round"/>
+    <path d="M0 30 Q -30 10 -40 -10 Q -10 -10 0 20" fill="#65a30d" stroke="#365314" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M0 50 Q  30 30  40 10 Q  10 10  0 40" fill="#65a30d" stroke="#365314" stroke-width="4" stroke-linejoin="round"/>
+  </g>
+</svg>
