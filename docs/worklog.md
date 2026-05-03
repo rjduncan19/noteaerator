@@ -189,6 +189,24 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 - **meta**: first push of the project to `origin/main` (everything up
   to and including the POC). Single commit so the early history stays
   legible.
+- **fix**: WebView2 was creating its user-data folder right next to
+  the exe (`Noteaerator.exe.WebView2/`). That works in `bin\Debug` but
+  would fail when installed to Program Files (read-only for non-admin).
+  Switched to `CoreWebView2Environment.CreateAsync(null,
+  %LOCALAPPDATA%\noteaerator\WebView2)` so per-user cache lives in the
+  right place. _artifacts_: `POC/Noteaerator/MainWindow.xaml.cs`
+- **code**: added `POC/install.ps1` and `POC/uninstall.ps1`.
+  Installer runs `dotnet publish -c Release -r win-x64
+  --self-contained true` by default (framework-INDEPENDENT, ~160 MB,
+  no .NET prerequisite on the target), with `-FrameworkDependent` for
+  a ~3 MB build. Self-elevates for system-wide install; `-PerUser`
+  skips elevation and installs under `%LOCALAPPDATA%\Programs\`.
+  Creates a Start Menu shortcut pointing at the installed exe with the
+  embedded decanter icon. Writes a `.install-manifest.json` so
+  `uninstall.ps1` knows what to remove. End-to-end install + launch +
+  uninstall verified. Files saved as UTF-8 + BOM (Windows PowerShell
+  5 falls over on BOM-less non-ASCII). _artifacts_:
+  `POC/install.ps1`, `POC/uninstall.ps1`, `POC/README.md`
 
 - **doc**: extended `POC/implementation-choices.md` with (a) a "Future-fit"
   section showing how WYSIWYG editing (Milkdown / ToastUI / TipTap) and

@@ -299,7 +299,15 @@ internal sealed class ProjectTab : IDisposable
     {
         try
         {
-            await _webView.EnsureCoreWebView2Async();
+            // Put WebView2's user-data folder under %LOCALAPPDATA% rather than next
+            // to the exe — required when the app is installed to Program Files
+            // (which is read-only for non-admin) and just generally cleaner.
+            var userDataDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "noteaerator", "WebView2");
+            Directory.CreateDirectory(userDataDir);
+            var env = await CoreWebView2Environment.CreateAsync(null, userDataDir, null);
+            await _webView.EnsureCoreWebView2Async(env);
             _webView.CoreWebView2.WebMessageReceived += OnWebMessage;
             var htmlPath = Path.Combine(AppContext.BaseDirectory, "Assets", "viewer.html");
             if (File.Exists(htmlPath))

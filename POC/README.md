@@ -51,10 +51,10 @@ Option 1 of [`POC/implementation-choices.md`](./implementation-choices.md):
 Requires the .NET 8 SDK and a modern Edge / WebView2 runtime
 (present by default on Windows 10/11).
 
-**Easiest path** — from the `POC/` folder:
+**Easiest path** -- from the `POC/` folder:
 
 ```pwsh
-.\launch.ps1            # build + run
+.\launch.ps1            # build + run (development; uses .\bin\Debug)
 .\launch.ps1 -Rebuild   # force a clean rebuild
 ```
 
@@ -67,8 +67,42 @@ cd POC\Noteaerator
 dotnet run
 ```
 
-Then click **Add project folder…** and pick `POC\sample-notes` to see
+Then click **Add project folder...** and pick `POC\sample-notes` to see
 the bundled sample, including a Mermaid diagram and an `@ai:` comment.
+
+## Install (retail)
+
+To produce a real installed build with a Start Menu entry:
+
+```pwsh
+# Standard install: framework-INDEPENDENT (~160 MB; embeds .NET 8 runtime;
+# no .NET prerequisite on the target machine), Program Files + All-Users
+# Start Menu (UAC prompt for elevation).
+.\install.ps1
+
+# Smaller install (~3 MB) when the machine already has the .NET 8 Desktop
+# runtime.
+.\install.ps1 -FrameworkDependent
+
+# Per-user install: no admin needed, lands in
+# %LOCALAPPDATA%\Programs\Noteaerator with a per-user Start Menu entry.
+.\install.ps1 -PerUser
+```
+
+After install, hit the Win key and type **noteaerator**.
+
+WebView2 runtime is required at runtime; it ships with Edge on Windows
+10/11 so no separate install is needed there.
+
+To remove:
+
+```pwsh
+.\uninstall.ps1
+```
+
+This removes the install directory and the Start Menu shortcut. Your
+per-user state (the project list at `%APPDATA%\noteaerator\viewer\`) is
+left in place.
 
 ## App icon
 
