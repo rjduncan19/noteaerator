@@ -1,0 +1,131 @@
+name: Release
+
+# Builds self-contained, framework-independent Windows publishes for x64 and arm64
+# whenever a tag matching v* is pushed, and uploads them as zip assets on a
+# new GitHub Release.
+#
+# To cut a release locally:
+#   git tag v0.1.0-poc -m "POC release"
+#   git push origin v0.1.0-poc
+#
+# The workflow needs no extra secrets — it uses the auto-injected GITHUB_TOKEN.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v0.1.0-poc). Required for manual runs.'
+        required: true
+
+permissions:
+  contents: write   # needed to create the release + upload assets
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [win-x64, win-arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve tag name
+        id: tag
+        shell: pwsh
+        run: |
+          $tag = if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $env:GITHUB_REF -replace '^refs/tags/',''
+          } else {
+            '${{ github.event.inputs.tag }}'
+          }
+          if (-not $tag) { throw "No tag resolved" }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "TAG=$tag"  | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Publish self-contained ${{ matrix.rid }}
+        shell: pwsh
+        run: |
+          $proj = 'POC/Noteaerator/Noteaerator.csproj'
+          $out  = "POC/Noteaerator/bin/Release/publish-${{ matrix.rid }}"
+          dotnet publish $proj -c Release -r ${{ matrix.rid }} `
+            --self-contained true `
+            "-p:PublishDir=$out/" `
+            "-p:PublishSingleFile=false" `
+            --nologo
+          if (-not (Test-Path "$out/Noteaerator.exe")) {
+            throw "Publish output is missing Noteaerator.exe"
+          }
+
+      - name: Zip publish output
+        shell: pwsh
+        run: |
+          $out  = "POC/Noteaerator/bin/Release/publish-${{ matrix.rid }}"
+          $name = "NoteAerator-$Env:TAG-${{ matrix.rid }}.zip"
+          Compress-Archive -Path "$out/*" -DestinationPath $name
+          $sz = (Get-Item $name).Length / 1MB
+          Write-Host ("Created {0} ({1:N1} MB)" -f $name, $sz)
+          "ASSET=$name" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoteAerator-${{ matrix.rid }}
+          path: ${{ env.ASSET }}
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag name
+        id: tag
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tag="${GITHUB_REF#refs/tags/}"
+          else
+            tag="${{ github.event.inputs.tag }}"
+          fi
+          [ -z "$tag" ] && { echo "No tag"; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List downloaded
+        run: ls -lh dist/
+
+      - name: Create / update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Note Aerator ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
+          body: |
+            ## Note Aerator — ${{ steps.tag.outputs.tag }}
+
+            Self-contained Windows builds (no .NET install required on the target).
+
+            | Asset | Architecture | Size |
+            |---|---|---|
+            | `NoteAerator-${{ steps.tag.outputs.tag }}-win-x64.zip`   | x64   | ~160 MB |
+            | `NoteAerator-${{ steps.tag.outputs.tag }}-win-arm64.zip` | arm64 | ~175 MB |
+
+            See [`INSTALL.md`](./INSTALL.md) for download / install / run
+            instructions.
+          files: |
+            dist/*.zip

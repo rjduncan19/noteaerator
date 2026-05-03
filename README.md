@@ -129,7 +129,8 @@ Early POC. What exists today:
 - A working **Markdown viewer POC** under `POC/Noteaerator/` (C# WPF +
   WebView2 + markdown-it + mermaid.js):
   - Horizontal tabs for projects (folders), vertical scrollable list
-    of `.md` files per project.
+    of `.md` files per project, with an "Archive" expander at the
+    bottom (right-click any file to move it in/out of archive).
   - Auto-refresh on disk change via `FileSystemWatcher` (OneDrive /
     Drive friendly).
   - Mermaid + syntax highlighting + GFM + inline `@ai:` markers.
@@ -137,12 +138,19 @@ Early POC. What exists today:
     hover-`+` in the left margin or right-click any block / table row /
     list item to comment; cards float in the right margin as
     semi-transparent overlays anchored exactly to their target.
+  - **Cross-file search** (Ctrl+F or the magnifier in the top-right):
+    naive scan over `.md` content + sidecar comment bodies, scoped to
+    the whole project (default) or the current file.
   - **Strictly read-only on `.md` files** (audited).
   - Custom decanter app icon + Fluent-ish theme.
-  - One-stop `POC\launch.ps1` launcher.
-- Decisions captured: see `POC/implementation-choices.md` and
-  `POC/comments-design.md`.
+  - One-stop `POC\launch.ps1` launcher and `POC\install.ps1` /
+    `POC\uninstall.ps1` for a real installed build with a Start Menu
+    entry.
+- **Pre-built binaries** for Windows x64 and arm64 are published as
+  GitHub Release assets — see [`INSTALL.md`](./INSTALL.md).
+- Decisions captured: see `POC/implementation-choices.md`,
+  `POC/comments-design.md`, and `POC/search-design.md`.
 
 Not yet: WYSIWYG editing, recursive file tree, offline JS bundling,
-window-state persistence, multi-machine sync conventions beyond
-"point it at your synced folder".
+window-state persistence, semantic search, multi-machine sync
+conventions beyond "point it at your synced folder".
