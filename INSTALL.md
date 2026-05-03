@@ -93,6 +93,26 @@ To remove a script-installed copy:
 - Hit **Ctrl+F** (or click the magnifier in the top-right) to search
   across all files in the project (default) or just the current file.
 
+## WebView2 runtime
+
+Note Aerator embeds the **Evergreen** Microsoft Edge WebView2 runtime
+(the system-shared install that ships with Edge on Windows 10/11).
+No fixed runtime is bundled, so the installer stays small. If the
+runtime is somehow missing on your machine (rare; some stripped
+images and older Server SKUs), the app will show a friendly dialog
+at startup with a download link rather than crashing.
+
+If you ever need to reinstall it manually:
+<https://developer.microsoft.com/microsoft-edge/webview2/>.
+
+## Privacy
+
+Note Aerator runs entirely on your machine and **does not collect
+any data** about you, your notes, your usage, or anything else.
+The only network calls it makes are to fetch a few Markdown rendering
+libraries from a public CDN the first time you open a note. Full
+policy: [`PRIVACY.md`](https://github.com/rjduncan19/noteaerator/blob/main/PRIVACY.md).
+
 ## Uninstall
 
 If you used the zip:

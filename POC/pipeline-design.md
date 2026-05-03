@@ -70,13 +70,17 @@ app. Gating issues are administrative more than technical.
    (per-app cap is 25 GB), but it's noticeable. Framework-dependent
    + declaring `Microsoft.NET.CoreFramework.Desktop` as an MSIX
    dependency is leaner -- Store users get .NET auto-installed.
-3. **WebView2 runtime declaration.** MSIX needs to declare
-   `Microsoft.Web.WebView2` either as a dependency (Evergreen, what
-   we already use) or bundle the Fixed Runtime (~150 MB extra).
-   Evergreen is fine.
-4. **Privacy URL + capabilities.** App declares no special
-   capabilities, but Store wants a privacy policy URL. Static page
-   is sufficient.
+3. **WebView2 runtime declaration.** ✅ We use the Evergreen runtime
+   (the system-shared Edge WebView2 install). MSIX would declare
+   `Microsoft.Web.WebView2` as a dependency rather than bundle the
+   ~150 MB Fixed Runtime. The app already detects a missing runtime
+   at startup and offers a friendly download link (see
+   `App.xaml.cs`).
+4. **Privacy URL + capabilities.** ✅ App declares no special
+   capabilities. Privacy policy is published as
+   [`PRIVACY.md`](../PRIVACY.md) at the repo root; the Store URL
+   would be
+   `https://github.com/rjduncan19/noteaerator/blob/main/PRIVACY.md`.
 
 **Bottom line**: maybe 2-3 days of work spread over a calendar week
 (waiting on review). Worth it for broad reach; overkill for

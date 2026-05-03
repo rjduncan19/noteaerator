@@ -134,6 +134,11 @@ recorded in `docs/worklog.md` (durable) and in the session SQL store
 (live). This gives us a clear history of the project's own evolution. The
 full workflow is in `AGENTS.md`.
 
+## Privacy
+
+Note Aerator runs entirely on your machine and **does not collect any
+data**. See [`PRIVACY.md`](./PRIVACY.md) for the full policy.
+
 ## Status
 
 Early POC. What exists today:

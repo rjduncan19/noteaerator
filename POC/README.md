@@ -92,7 +92,11 @@ To produce a real installed build with a Start Menu entry:
 After install, hit the Win key and type **noteaerator**.
 
 WebView2 runtime is required at runtime; it ships with Edge on Windows
-10/11 so no separate install is needed there.
+10/11 so no separate install is needed there. Note Aerator uses the
+Evergreen WebView2 runtime (whichever version Edge updated to most
+recently) — no fixed runtime is bundled. If the runtime is somehow
+missing on your machine, the app will show a friendly dialog with a
+download link instead of crashing.
 
 To remove:
 

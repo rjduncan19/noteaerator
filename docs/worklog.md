@@ -448,6 +448,26 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
   markers added throughout. Decision section closed with the
   free-wins tier and remaining open question about FTE Partner
   Center benefits. _artifacts_: `POC/pipeline-design.md`
+- **doc**: addressed two of the Microsoft-Store gotchas listed in
+  `pipeline-design.md`:
+  - **Privacy URL.** Wrote `PRIVACY.md` at the repo root (clear
+    "we collect nothing" policy with full disclosure of the only
+    network calls -- the jsDelivr CDN fetches for markdown-it /
+    mermaid / highlight.js / github-markdown-css). Linked from
+    README and INSTALL. Store URL would be
+    `https://github.com/rjduncan19/noteaerator/blob/main/PRIVACY.md`.
+  - **WebView2 Evergreen runtime.** Added an explicit startup check
+    in `App.xaml.cs.OnStartup`: calls
+    `CoreWebView2Environment.GetAvailableBrowserVersionString()` and,
+    if missing or unusable, shows a friendly `MessageBox` with a
+    "Open download page now?" prompt linking to
+    `developer.microsoft.com/microsoft-edge/webview2/` then
+    `Shutdown(2)`. Documented the Evergreen choice (no fixed
+    runtime bundled) in `INSTALL.md` and `POC/README.md`. Updated
+    `pipeline-design.md` to mark gotchas 3 + 4 as ✅.
+  _artifacts_: `PRIVACY.md`, `POC/Noteaerator/App.xaml.cs`,
+  `INSTALL.md`, `POC/README.md`, `README.md`,
+  `POC/pipeline-design.md`
 
 - **doc**: extended `POC/implementation-choices.md` with (a) a "Future-fit"
   section showing how WYSIWYG editing (Milkdown / ToastUI / TipTap) and
