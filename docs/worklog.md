@@ -350,6 +350,27 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
   arches and the release was created with both zips attached.
   Verified via `gh release view v0.1.0-poc`. _artifacts_:
   `.github/workflows/release.yml`
+- **fix**: links inside rendered Markdown were navigating *inside*
+  the WebView2, replacing the rendered note. Strictly external-only
+  now.
+  - C#: subscribed to `CoreWebView2.NavigationStarting` and cancel
+    any navigation away from the initial `viewer.html` (allowing
+    same-document fragment / `#anchor` navigation). Cancelled URI
+    is shell-launched via `Process.Start(UseShellExecute=true)` so
+    it opens in the user's default browser. Same treatment for
+    `NewWindowRequested` (catches `target="_blank"`, `window.open`,
+    Ctrl+click).
+  - JS: extended the right-click menu in `viewer.html` to detect
+    `<a>` ancestors. Right-click on any link now shows
+    "🔗 Open link in browser" and "📋 Copy link" entries (in
+    addition to the existing "Add comment here" item when the
+    target is also an anchored block). Copy uses
+    `navigator.clipboard.writeText` with a hidden-textarea +
+    `execCommand('copy')` fallback for restricted contexts.
+  - Build clean; smoke launch passed.
+  - Released as **v0.1.1-poc**.
+  _artifacts_: `POC/Noteaerator/MainWindow.xaml.cs`,
+  `POC/Noteaerator/Assets/viewer.html`
 
 - **doc**: extended `POC/implementation-choices.md` with (a) a "Future-fit"
   section showing how WYSIWYG editing (Milkdown / ToastUI / TipTap) and
