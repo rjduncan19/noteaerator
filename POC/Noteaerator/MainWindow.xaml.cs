@@ -115,7 +115,7 @@ public partial class MainWindow : Window
 
     private void OnCloseSearchExecuted(object sender, ExecutedRoutedEventArgs e) => CloseSearch();
     private void OnCloseSearchCanExecute(object sender, CanExecuteRoutedEventArgs e)
-        => e.CanExecute = SearchPanel.Visibility == Visibility.Visible;
+        => e.CanExecute = SearchPopup.IsOpen;
 
     private void OpenSearch()
     {
@@ -124,8 +124,10 @@ public partial class MainWindow : Window
             SetStatus("Add a project folder first to enable search.", null);
             return;
         }
-        SearchPanel.Visibility = Visibility.Visible;
-        // If we have an open file, allow scoping to it; otherwise force project scope.
+        // Anchor the popup to the right side of the project area.
+        // PlacementTarget = ProjectsTabs; offset puts it 8px from top, 16px from right edge.
+        PositionSearchPopup();
+        SearchPopup.IsOpen = true;
         var hasFile = CurrentProject.CurrentFile != null;
         ScopeFile.IsEnabled = hasFile;
         if (!hasFile && ScopeFile.IsChecked == true)
@@ -137,9 +139,26 @@ public partial class MainWindow : Window
         UpdateSearchSummary();
     }
 
+    private void PositionSearchPopup()
+    {
+        // Right-align: HorizontalOffset = (target width) - (panel width + right margin).
+        // The panel itself has width 440 with a 16px right margin baked into the Border;
+        // we offset by (target width - 440 - 16) and 8px from top.
+        const double panelWidth = 440 + 16; // panel + margin
+        const double topInset = 8;
+        var targetWidth = ProjectsTabs.ActualWidth;
+        SearchPopup.HorizontalOffset = Math.Max(0, targetWidth - panelWidth);
+        SearchPopup.VerticalOffset = topInset;
+    }
+
     private void CloseSearch()
     {
-        SearchPanel.Visibility = Visibility.Collapsed;
+        SearchPopup.IsOpen = false;
+    }
+
+    private void OnSearchPopupClosed(object? sender, EventArgs e)
+    {
+        // No-op for now; could clear input if desired.
     }
 
     private void OnSearchInputKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -684,7 +703,6 @@ internal sealed class ProjectTab : IDisposable
             if (string.Equals(_currentFile, mdPath, StringComparison.OrdinalIgnoreCase))
                 _currentFile = null;
 
-            _archiveExpander.IsExpanded = true;
             PopulateFiles();
         }
         catch (Exception ex)

@@ -287,6 +287,24 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
     `POC/Noteaerator/MainWindow.xaml.cs`,
     `POC/Noteaerator/Assets/viewer.html`,
     `POC/search-design.md`
+- **fix**: archiving a file used to auto-expand the Archive expander
+  on every move. Removed — the expander now stays in whatever state
+  the user left it. (The auto-expand still kicks in on the
+  search-result jump path, where it's needed so the user actually
+  sees the selected archived item.) _artifacts_:
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **fix**: search overlay rendered BEHIND the WebView2 content panel
+  and got clipped. Root cause is the well-known WPF airspace problem
+  — WebView2 is a native HWND child whose paint always wins over WPF
+  z-order, regardless of `Panel.ZIndex`. Switched the search panel
+  from an in-Grid `Border` overlay to a `Popup` (which hosts its own
+  HWND and can correctly paint over the WebView2). Popup is
+  positioned via `PlacementTarget=ProjectsTabs` with
+  `HorizontalOffset` recomputed each open so the panel anchors to the
+  project area's top-right with a 16px right inset. Esc still closes;
+  Ctrl+F still toggles. Build clean; smoke launch passed.
+  _artifacts_: `POC/Noteaerator/MainWindow.xaml`,
+  `POC/Noteaerator/MainWindow.xaml.cs`
 
 - **doc**: extended `POC/implementation-choices.md` with (a) a "Future-fit"
   section showing how WYSIWYG editing (Milkdown / ToastUI / TipTap) and
