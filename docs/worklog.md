@@ -331,6 +331,25 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
     release will land at /releases/tag/v0.1.0-poc.
   _artifacts_: `.github/workflows/release.yml`, `INSTALL.md`,
   `README.md`
+- **infra**: installed `gh` CLI (v2.92.0) into
+  `%LOCALAPPDATA%\Programs\gh` from the official release zip and
+  added it to the user PATH; authenticated via the device-code
+  browser flow as `rjduncan19`. This unblocks workflow / release
+  verification from the agent's session.
+- **fix**: the first run of the release workflow failed for both
+  architectures with "Publish output is missing Noteaerator.exe".
+  Root cause: `dotnet publish` resolves `-p:PublishDir` **relative
+  to the project directory**, not the working directory. Passing
+  `POC/Noteaerator/bin/Release/publish-...` from the repo root made
+  it land at `POC/Noteaerator/POC/Noteaerator/bin/...`. Local sanity
+  worked only because I had `cd`'d into the project folder first.
+  Switched the workflow to compute an absolute `PublishDir` via
+  `Join-Path (Resolve-Path .) "publish-<rid>"` and exported it via
+  `GITHUB_ENV` so the zip step uses the same path. Force-moved the
+  `v0.1.0-poc` tag to the fix commit; re-run succeeded for both
+  arches and the release was created with both zips attached.
+  Verified via `gh release view v0.1.0-poc`. _artifacts_:
+  `.github/workflows/release.yml`
 
 - **doc**: extended `POC/implementation-choices.md` with (a) a "Future-fit"
   section showing how WYSIWYG editing (Milkdown / ToastUI / TipTap) and
