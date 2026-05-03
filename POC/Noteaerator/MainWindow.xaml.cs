@@ -875,6 +875,9 @@ internal sealed class ProjectTab : IDisposable
 
     // ---------------- WebView2 + render plumbing ----------------
 
+    private bool _initialNavSeen;
+    private string? _initialNavUri;
+
     private async System.Threading.Tasks.Task InitWebViewAsync()
     {
         try
@@ -886,6 +889,38 @@ internal sealed class ProjectTab : IDisposable
             var env = await CoreWebView2Environment.CreateAsync(null, userDataDir, null);
             await _webView.EnsureCoreWebView2Async(env);
             _webView.CoreWebView2.WebMessageReceived += OnWebMessage;
+
+            // Intercept any navigation away from our viewer page (links, redirects,
+            // form posts, anything) and shell-launch it externally so links open
+            // in the user's default browser instead of replacing the rendered MD.
+            _webView.CoreWebView2.NavigationStarting += (_, e) =>
+            {
+                var uri = e.Uri ?? "";
+                if (!_initialNavSeen)
+                {
+                    _initialNavSeen = true;
+                    _initialNavUri = uri;
+                    return;
+                }
+                // Allow same-document hash / fragment navigation.
+                var hash = uri.IndexOf('#');
+                var withoutHash = hash >= 0 ? uri.Substring(0, hash) : uri;
+                var baseInitial = (_initialNavUri ?? "");
+                var iHash = baseInitial.IndexOf('#');
+                if (iHash >= 0) baseInitial = baseInitial.Substring(0, iHash);
+                if (string.Equals(withoutHash, baseInitial, StringComparison.OrdinalIgnoreCase))
+                    return;
+                e.Cancel = true;
+                LaunchExternal(uri);
+            };
+
+            // window.open / target="_blank" / Ctrl+click → also shell-launch.
+            _webView.CoreWebView2.NewWindowRequested += (_, e) =>
+            {
+                e.Handled = true;
+                LaunchExternal(e.Uri);
+            };
+
             var htmlPath = Path.Combine(AppContext.BaseDirectory, "Assets", "viewer.html");
             if (File.Exists(htmlPath))
             {
@@ -911,6 +946,23 @@ internal sealed class ProjectTab : IDisposable
         catch (Exception ex)
         {
             _setStatus($"WebView2 init failed: {ex.Message}", null);
+        }
+    }
+
+    private void LaunchExternal(string uri)
+    {
+        if (string.IsNullOrEmpty(uri)) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = uri,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _setStatus($"Failed to open {uri}: {ex.Message}", uri);
         }
     }
 

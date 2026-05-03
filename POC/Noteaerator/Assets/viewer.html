@@ -601,13 +601,48 @@
       document.addEventListener('contextmenu', (e) => {
         const article = document.getElementById('content');
         if (!article || !article.contains(e.target)) return;
-        let el = e.target;
-        while (el && el !== article && !(el.dataset && el.dataset.anchor)) el = el.parentElement;
-        if (!el || el === article) return;
+
+        // Find link ancestor (if any)
+        let link = e.target;
+        while (link && link !== article && link.tagName !== 'A') link = link.parentElement;
+        if (link === article || !link || !link.href) link = null;
+
+        // Find anchored block ancestor (if any)
+        let anchor = e.target;
+        while (anchor && anchor !== article && !(anchor.dataset && anchor.dataset.anchor)) anchor = anchor.parentElement;
+        if (anchor === article) anchor = null;
+
+        const items = [];
+        if (link) {
+          const href = link.href;
+          items.push({
+            label: '🔗  Open link in browser',
+            action: () => { try { window.open(href, '_blank'); } catch (_) {} }
+          });
+          items.push({
+            label: '📋  Copy link',
+            action: async () => {
+              try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  await navigator.clipboard.writeText(href);
+                } else {
+                  // Fallback for older / restricted contexts
+                  const ta = document.createElement('textarea');
+                  ta.value = href; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                  document.body.appendChild(ta); ta.select();
+                  document.execCommand('copy'); ta.remove();
+                }
+              } catch (_) {}
+            }
+          });
+        }
+        if (anchor) {
+          items.push({ label: '💬  Add comment here', action: () => openCommentInput(anchor) });
+        }
+
+        if (items.length === 0) return;
         e.preventDefault();
-        showCtxMenu(e.clientX, e.clientY, el, [
-          { label: '💬 Add comment here', action: () => openCommentInput(el) }
-        ]);
+        showCtxMenu(e.clientX, e.clientY, anchor, items);
       });
 
       // -------------------- Re-layout triggers --------------------
