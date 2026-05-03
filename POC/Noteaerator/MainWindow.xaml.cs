@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -7,6 +8,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
@@ -15,6 +17,8 @@ namespace Noteaerator;
 
 public partial class MainWindow : Window
 {
+    private const string ArchiveSubdir = "archive";
+
     private readonly List<ProjectTab> _projects = new();
     private readonly string _configPath;
 
@@ -42,7 +46,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"Failed to load projects: {ex.Message}";
+            SetStatus($"Failed to load projects: {ex.Message}", null);
         }
 
         if (ProjectsTabs.Items.Count > 0)
@@ -70,17 +74,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnRemoveProject(object sender, RoutedEventArgs e)
-    {
-        if (ProjectsTabs.SelectedItem is TabItem ti && ti.Tag is ProjectTab pt)
-        {
-            pt.Dispose();
-            _projects.Remove(pt);
-            ProjectsTabs.Items.Remove(ti);
-            SaveProjects();
-        }
-    }
-
     private void OnRefresh(object sender, RoutedEventArgs e)
     {
         if (ProjectsTabs.SelectedItem is TabItem ti && ti.Tag is ProjectTab pt)
@@ -91,7 +84,23 @@ public partial class MainWindow : Window
     {
         if (e.Source != ProjectsTabs) return;
         if (ProjectsTabs.SelectedItem is TabItem ti && ti.Tag is ProjectTab pt)
-            StatusText.Text = pt.FolderPath;
+            SetStatus(pt.FolderPath, pt.FolderPath);
+    }
+
+    private void RemoveProject(ProjectTab pt)
+    {
+        var ti = ProjectsTabs.Items.Cast<TabItem>().FirstOrDefault(t => ReferenceEquals(t.Tag, pt));
+        if (ti == null) return;
+        pt.Dispose();
+        _projects.Remove(pt);
+        ProjectsTabs.Items.Remove(ti);
+        SaveProjects();
+    }
+
+    private void SetStatus(string text, string? tooltip)
+    {
+        StatusText.Text = text;
+        StatusText.ToolTip = string.IsNullOrEmpty(tooltip) ? null : tooltip;
     }
 
     private void AddProject(string folderPath)
@@ -99,16 +108,33 @@ public partial class MainWindow : Window
         if (_projects.Any(p => string.Equals(p.FolderPath, folderPath, StringComparison.OrdinalIgnoreCase)))
             return;
 
-        var pt = new ProjectTab(folderPath, msg => Dispatcher.Invoke(() => StatusText.Text = msg));
+        var pt = new ProjectTab(folderPath, (text, tip) =>
+            Dispatcher.Invoke(() => SetStatus(text, tip)));
         _projects.Add(pt);
+
+        var headerText = new TextBlock { Text = Path.GetFileName(folderPath.TrimEnd('\\', '/')) };
 
         var tabItem = new TabItem
         {
-            Header = new TextBlock { Text = Path.GetFileName(folderPath.TrimEnd('\\', '/')) },
+            Header = headerText,
             ToolTip = folderPath,
             Content = pt.Root,
             Tag = pt
         };
+
+        // Right-click on a project tab → Remove project
+        var menu = new ContextMenu();
+        var removeItem = new MenuItem { Header = "Remove project from list" };
+        removeItem.Click += (_, _) =>
+        {
+            var ans = MessageBox.Show(
+                $"Remove this project from the list?\n\n{folderPath}\n\nFiles on disk are not affected.",
+                "Remove project", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (ans == MessageBoxResult.Yes) RemoveProject(pt);
+        };
+        menu.Items.Add(removeItem);
+        tabItem.ContextMenu = menu;
+
         ProjectsTabs.Items.Add(tabItem);
     }
 }
@@ -137,7 +163,7 @@ internal sealed class CommentFile
 {
     [JsonPropertyName("_purpose")]
     public string Purpose { get; set; } =
-        "Human comments on the sibling .md file, written by the noteaerator viewer. " +
+        "Human comments on the sibling .md file, written by the Note Aerator viewer. " +
         "Agents are expected to read these, act on them, and DELETE this file when done. " +
         "Removing all entries also auto-deletes this file.";
 
@@ -181,19 +207,13 @@ internal static class CommentStore
         var path = SidecarPath(mdPath);
         if (data.Comments.Count == 0)
         {
-            // Empty → delete the sidecar so the project tree stays clean and the
-            // "comments processed" lifecycle is symmetric.
             try { if (File.Exists(path)) File.Delete(path); } catch { }
             return;
         }
-
-        // Atomic write: temp + replace, so a crash mid-write doesn't corrupt the file.
         var tmp = path + ".tmp";
         File.WriteAllText(tmp, JsonSerializer.Serialize(data, Opts));
-        if (File.Exists(path))
-            File.Replace(tmp, path, null);
-        else
-            File.Move(tmp, path);
+        if (File.Exists(path)) File.Replace(tmp, path, null);
+        else                   File.Move(tmp, path);
     }
 
     public static void AddComment(string mdPath, CommentEntry entry)
@@ -212,29 +232,37 @@ internal static class CommentStore
 }
 
 // =====================================================================================
-// One project = one folder. Vertical TabControl of .md files + WebView2 renderer.
+// One project = one folder. File pane on the left, WebView2 renderer on the right.
+//   File pane = [active files ListBox] + [Archive expander → archived files ListBox].
 // =====================================================================================
 
 internal sealed class ProjectTab : IDisposable
 {
+    private const string ArchiveSubdir = "archive";
+
     public string FolderPath { get; }
     public Grid Root { get; }
 
-    private readonly TabControl _filesTabs;
+    private readonly ListBox _activeList;
+    private readonly ListBox _archivedList;
+    private readonly Expander _archiveExpander;
+    private readonly TextBlock _archiveHeaderText;
+    private readonly ObservableCollection<FileEntry> _activeFiles = new();
+    private readonly ObservableCollection<FileEntry> _archivedFiles = new();
+
     private readonly WebView2 _webView;
     private readonly FileSystemWatcher _mdWatcher;
     private readonly FileSystemWatcher _commentsWatcher;
-    private readonly Action<string> _setStatus;
+    private readonly Action<string, string?> _setStatus;
     private readonly SynchronizationContext _ui;
     private bool _webViewReady;
     private (string md, string commentsJson)? _pending;
     private string? _currentFile;
+    private bool _suppressSelChange;
 
-    // We just wrote a sidecar file ourselves; suppress the next watcher event to
-    // avoid an immediate redundant re-render flicker.
     private DateTime _suppressSidecarUntil = DateTime.MinValue;
 
-    public ProjectTab(string folderPath, Action<string> setStatus)
+    public ProjectTab(string folderPath, Action<string, string?> setStatus)
     {
         FolderPath = folderPath;
         _setStatus = setStatus;
@@ -245,12 +273,56 @@ internal sealed class ProjectTab : IDisposable
         Root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        _filesTabs = new TabControl { TabStripPlacement = Dock.Left };
-        if (System.Windows.Application.Current?.TryFindResource("FileTabControlStyle") is Style fileStyle)
-            _filesTabs.Style = fileStyle;
-        _filesTabs.SelectionChanged += OnFileSelected;
-        Grid.SetColumn(_filesTabs, 0);
-        Root.Children.Add(_filesTabs);
+        // ---- Left pane: active list (fills) + archive expander (docked bottom) ----
+        var leftPanel = new DockPanel { LastChildFill = true };
+        leftPanel.SetResourceReference(Control.BackgroundProperty, "SurfaceBrush");
+
+        _activeList = new ListBox { ItemsSource = _activeFiles };
+        if (Application.Current?.TryFindResource("FileListBoxStyle") is Style listStyle)
+            _activeList.Style = listStyle;
+        _activeList.ItemTemplate = BuildFileItemTemplate();
+        _activeList.SelectionChanged += OnActiveSelected;
+        _activeList.PreviewMouseRightButtonDown += (s, e) => OnFileRightClick(s, e, isArchived: false);
+
+        _archivedList = new ListBox { ItemsSource = _archivedFiles };
+        if (Application.Current?.TryFindResource("FileListBoxStyle") is Style listStyle2)
+            _archivedList.Style = listStyle2;
+        _archivedList.ItemTemplate = BuildFileItemTemplate();
+        _archivedList.SelectionChanged += OnArchivedSelected;
+        _archivedList.PreviewMouseRightButtonDown += (s, e) => OnFileRightClick(s, e, isArchived: true);
+
+        // Expander header is custom so we can show a count badge.
+        _archiveHeaderText = new TextBlock
+        {
+            Text = "Archive",
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold
+        };
+        _archiveHeaderText.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
+
+        _archiveExpander = new Expander
+        {
+            IsExpanded = false,
+            Header = _archiveHeaderText
+        };
+        if (Application.Current?.TryFindResource("ArchiveExpanderStyle") is Style expStyle)
+            _archiveExpander.Style = expStyle;
+
+        var archScroll = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            MaxHeight = 220,
+            Content = _archivedList
+        };
+        _archiveExpander.Content = archScroll;
+
+        DockPanel.SetDock(_archiveExpander, Dock.Bottom);
+        leftPanel.Children.Add(_archiveExpander);
+        leftPanel.Children.Add(_activeList);
+
+        Grid.SetColumn(leftPanel, 0);
+        Root.Children.Add(leftPanel);
 
         var splitter = new GridSplitter
         {
@@ -258,7 +330,7 @@ internal sealed class ProjectTab : IDisposable
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             Background = (System.Windows.Media.Brush?)
-                System.Windows.Application.Current?.TryFindResource("BorderBrush")
+                Application.Current?.TryFindResource("BorderBrush")
                 ?? System.Windows.Media.Brushes.LightGray
         };
         Grid.SetColumn(splitter, 1);
@@ -270,10 +342,11 @@ internal sealed class ProjectTab : IDisposable
 
         _ = InitWebViewAsync();
 
+        // Watchers — recursive so we catch the archive subdir too.
         _mdWatcher = new FileSystemWatcher(folderPath, "*.md")
         {
             NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
-            IncludeSubdirectories = false,
+            IncludeSubdirectories = true,
             EnableRaisingEvents = true
         };
         _mdWatcher.Changed += OnMdChanged;
@@ -284,7 +357,7 @@ internal sealed class ProjectTab : IDisposable
         _commentsWatcher = new FileSystemWatcher(folderPath, "*-comments.json")
         {
             NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
-            IncludeSubdirectories = false,
+            IncludeSubdirectories = true,
             EnableRaisingEvents = true
         };
         _commentsWatcher.Changed += OnSidecarChanged;
@@ -295,13 +368,229 @@ internal sealed class ProjectTab : IDisposable
         PopulateFiles();
     }
 
+    private DataTemplate BuildFileItemTemplate()
+    {
+        // Simple: a TextBlock with the file's display name, ellipsis-trimmed,
+        // tooltip = full path. Right-click context menu is wired on the
+        // ListBox via PreviewMouseRightButtonDown so the menu can be built
+        // freshly per-click without DataTemplate sharing pitfalls.
+        var template = new DataTemplate(typeof(FileEntry));
+        var tb = new FrameworkElementFactory(typeof(TextBlock));
+        tb.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(nameof(FileEntry.Display)));
+        tb.SetBinding(FrameworkElement.ToolTipProperty, new System.Windows.Data.Binding(nameof(FileEntry.Path)));
+        tb.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+        template.VisualTree = tb;
+        template.Seal();
+        return template;
+    }
+
+    private void OnFileRightClick(object sender, MouseButtonEventArgs e, bool isArchived)
+    {
+        if (sender is not ListBox lb) return;
+        // Find ListBoxItem under the cursor.
+        var dep = e.OriginalSource as DependencyObject;
+        while (dep != null && dep is not ListBoxItem) dep = System.Windows.Media.VisualTreeHelper.GetParent(dep);
+        if (dep is not ListBoxItem lbi || lbi.DataContext is not FileEntry fe) return;
+
+        // Select it so it's clear what the menu acts on.
+        lbi.IsSelected = true;
+
+        var menu = new ContextMenu();
+        var item = new MenuItem
+        {
+            Header = isArchived ? "Restore from Archive" : "Move to Archive…"
+        };
+        var path = fe.Path;
+        item.Click += (_, _) =>
+        {
+            if (isArchived) RestoreFile(path);
+            else            ArchiveFile(path);
+        };
+        menu.Items.Add(item);
+        menu.PlacementTarget = lbi;
+        menu.IsOpen = true;
+        e.Handled = true;
+    }
+
+    // ---------------- Archive operations ----------------
+
+    private string ArchiveDir => Path.Combine(FolderPath, ArchiveSubdir);
+
+    private void ArchiveFile(string mdPath)
+    {
+        try
+        {
+            Directory.CreateDirectory(ArchiveDir);
+            var name = Path.GetFileName(mdPath);
+            var dest = Path.Combine(ArchiveDir, name);
+            if (File.Exists(dest))
+            {
+                _setStatus($"Archive already contains a file named {name}", null);
+                return;
+            }
+            File.Move(mdPath, dest);
+
+            // Move sidecar if present
+            var srcSidecar = CommentStore.SidecarPath(mdPath);
+            if (File.Exists(srcSidecar))
+            {
+                var dstSidecar = CommentStore.SidecarPath(dest);
+                if (!File.Exists(dstSidecar)) File.Move(srcSidecar, dstSidecar);
+            }
+
+            // If we just archived the open file, close it.
+            if (string.Equals(_currentFile, mdPath, StringComparison.OrdinalIgnoreCase))
+                _currentFile = null;
+
+            _archiveExpander.IsExpanded = true;
+            PopulateFiles();
+        }
+        catch (Exception ex)
+        {
+            _setStatus($"Archive failed: {ex.Message}", null);
+        }
+    }
+
+    private void RestoreFile(string archivedPath)
+    {
+        try
+        {
+            var name = Path.GetFileName(archivedPath);
+            var dest = Path.Combine(FolderPath, name);
+            if (File.Exists(dest))
+            {
+                _setStatus($"Project already contains a file named {name}", null);
+                return;
+            }
+            File.Move(archivedPath, dest);
+
+            var srcSidecar = CommentStore.SidecarPath(archivedPath);
+            if (File.Exists(srcSidecar))
+            {
+                var dstSidecar = CommentStore.SidecarPath(dest);
+                if (!File.Exists(dstSidecar)) File.Move(srcSidecar, dstSidecar);
+            }
+
+            PopulateFiles();
+        }
+        catch (Exception ex)
+        {
+            _setStatus($"Restore failed: {ex.Message}", null);
+        }
+    }
+
+    // ---------------- File listing + selection ----------------
+
+    private void PopulateFiles()
+    {
+        var prevFile = _currentFile;
+
+        var active = SafeEnum(FolderPath).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
+        var archived = Directory.Exists(ArchiveDir)
+            ? SafeEnum(ArchiveDir).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList()
+            : new List<string>();
+
+        _suppressSelChange = true;
+        try
+        {
+            _activeFiles.Clear();
+            foreach (var f in active) _activeFiles.Add(new FileEntry(f));
+            _archivedFiles.Clear();
+            foreach (var f in archived) _archivedFiles.Add(new FileEntry(f));
+        }
+        finally { _suppressSelChange = false; }
+
+        _archiveHeaderText.Text = archived.Count > 0 ? $"Archive  ({archived.Count})" : "Archive";
+
+        if (_activeFiles.Count == 0 && _archivedFiles.Count == 0)
+        {
+            _setStatus($"No .md files in {FolderPath}", FolderPath);
+            return;
+        }
+
+        // Restore previous selection if possible.
+        FileEntry? toSelect = null;
+        bool inArchive = false;
+        if (prevFile != null)
+        {
+            toSelect = _activeFiles.FirstOrDefault(fe => Eq(fe.Path, prevFile));
+            if (toSelect == null)
+            {
+                toSelect = _archivedFiles.FirstOrDefault(fe => Eq(fe.Path, prevFile));
+                if (toSelect != null) inArchive = true;
+            }
+        }
+        toSelect ??= _activeFiles.FirstOrDefault();
+
+        if (toSelect != null)
+        {
+            _suppressSelChange = true;
+            try
+            {
+                if (inArchive)
+                {
+                    _archivedList.SelectedItem = toSelect;
+                    _activeList.SelectedItem = null;
+                }
+                else
+                {
+                    _activeList.SelectedItem = toSelect;
+                    _archivedList.SelectedItem = null;
+                }
+            }
+            finally { _suppressSelChange = false; }
+            _currentFile = toSelect.Path;
+            _ = LoadCurrentAsync();
+        }
+    }
+
+    private static bool Eq(string? a, string? b)
+        => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    private static IEnumerable<string> SafeEnum(string dir)
+    {
+        try   { return Directory.EnumerateFiles(dir, "*.md", SearchOption.TopDirectoryOnly); }
+        catch { return Array.Empty<string>(); }
+    }
+
+    private void OnActiveSelected(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressSelChange) return;
+        if (_activeList.SelectedItem is FileEntry fe)
+        {
+            _suppressSelChange = true;
+            try { _archivedList.SelectedItem = null; }
+            finally { _suppressSelChange = false; }
+            _currentFile = fe.Path;
+            _ = LoadCurrentAsync();
+        }
+    }
+
+    private void OnArchivedSelected(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressSelChange) return;
+        if (_archivedList.SelectedItem is FileEntry fe)
+        {
+            _suppressSelChange = true;
+            try { _activeList.SelectedItem = null; }
+            finally { _suppressSelChange = false; }
+            _currentFile = fe.Path;
+            _ = LoadCurrentAsync();
+        }
+    }
+
+    public void Refresh()
+    {
+        PopulateFiles();
+        _ = LoadCurrentAsync();
+    }
+
+    // ---------------- WebView2 + render plumbing ----------------
+
     private async System.Threading.Tasks.Task InitWebViewAsync()
     {
         try
         {
-            // Put WebView2's user-data folder under %LOCALAPPDATA% rather than next
-            // to the exe — required when the app is installed to Program Files
-            // (which is read-only for non-admin) and just generally cleaner.
             var userDataDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "noteaerator", "WebView2");
@@ -328,12 +617,12 @@ internal sealed class ProjectTab : IDisposable
             }
             else
             {
-                _setStatus($"viewer.html not found at {htmlPath}");
+                _setStatus($"viewer.html not found at {htmlPath}", null);
             }
         }
         catch (Exception ex)
         {
-            _setStatus($"WebView2 init failed: {ex.Message}");
+            _setStatus($"WebView2 init failed: {ex.Message}", null);
         }
     }
 
@@ -384,87 +673,29 @@ internal sealed class ProjectTab : IDisposable
         }
         catch (Exception ex)
         {
-            _setStatus($"comment action failed: {ex.Message}");
+            _setStatus($"comment action failed: {ex.Message}", null);
         }
     }
 
     private static string? TryGetString(JsonElement obj, string name)
         => obj.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
-    private void PopulateFiles()
-    {
-        var prevFile = _currentFile;
-        _filesTabs.Items.Clear();
-        IEnumerable<string> files;
-        try
-        {
-            files = Directory.EnumerateFiles(FolderPath, "*.md", SearchOption.TopDirectoryOnly)
-                             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase);
-        }
-        catch (Exception ex)
-        {
-            _setStatus($"Cannot read {FolderPath}: {ex.Message}");
-            return;
-        }
-
-        foreach (var f in files)
-        {
-            var item = new TabItem
-            {
-                Header = new TextBlock
-                {
-                    Text = Path.GetFileName(f),
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                    MaxWidth = 196
-                },
-                ToolTip = f,
-                Tag = f
-            };
-            _filesTabs.Items.Add(item);
-        }
-
-        if (_filesTabs.Items.Count == 0)
-        {
-            _setStatus($"No .md files in {FolderPath}");
-            return;
-        }
-
-        var toSelect = _filesTabs.Items.Cast<TabItem>()
-            .FirstOrDefault(ti => string.Equals((string?)ti.Tag, prevFile, StringComparison.OrdinalIgnoreCase))
-            ?? (TabItem)_filesTabs.Items[0]!;
-        _filesTabs.SelectedItem = toSelect;
-    }
-
-    private void OnFileSelected(object sender, SelectionChangedEventArgs e)
-    {
-        if (e.Source != _filesTabs) return;
-        if (_filesTabs.SelectedItem is TabItem ti && ti.Tag is string path)
-        {
-            _currentFile = path;
-            _ = LoadCurrentAsync();
-        }
-    }
-
-    public void Refresh()
-    {
-        PopulateFiles();
-        _ = LoadCurrentAsync();
-    }
-
     private async System.Threading.Tasks.Task LoadCurrentAsync()
     {
         if (_currentFile == null) return;
         string md;
+        DateTime lastWrite;
         try
         {
             using var fs = new FileStream(_currentFile, FileMode.Open, FileAccess.Read,
                                           FileShare.ReadWrite | FileShare.Delete);
             using var sr = new StreamReader(fs);
             md = await sr.ReadToEndAsync();
+            lastWrite = File.GetLastWriteTime(_currentFile);
         }
         catch (Exception ex)
         {
-            _setStatus($"Read failed: {ex.Message}");
+            _setStatus($"Read failed: {ex.Message}", null);
             return;
         }
 
@@ -472,9 +703,14 @@ internal sealed class ProjectTab : IDisposable
         var commentsJson = JsonSerializer.Serialize(commentFile);
 
         var commentCount = commentFile.Comments.Count;
-        _setStatus(commentCount > 0
-            ? $"{_currentFile}    ·    {commentCount} comment{(commentCount == 1 ? "" : "s")}"
-            : $"{_currentFile}");
+        var fileName = Path.GetFileName(_currentFile);
+        var rel = FormatRelative(lastWrite);
+        var abs = lastWrite.ToString("yyyy-MM-dd HH:mm:ss");
+        var commentsBlurb = commentCount > 0
+            ? $"  ·  {commentCount} comment{(commentCount == 1 ? "" : "s")}"
+            : "";
+        var statusText = $"{fileName}  ·  modified {rel} ({abs}){commentsBlurb}";
+        _setStatus(statusText, _currentFile);
 
         if (!_webViewReady)
         {
@@ -484,44 +720,64 @@ internal sealed class ProjectTab : IDisposable
         await PushAsync(md, commentsJson);
     }
 
+    private static string FormatRelative(DateTime when)
+    {
+        var diff = DateTime.Now - when;
+        if (diff.TotalSeconds < 60)  return "just now";
+        if (diff.TotalMinutes < 60)  return $"{(int)diff.TotalMinutes} minute{((int)diff.TotalMinutes == 1 ? "" : "s")} ago";
+        if (diff.TotalHours   < 24)  return $"{(int)diff.TotalHours} hour{((int)diff.TotalHours == 1 ? "" : "s")} ago";
+        if (diff.TotalDays    < 2)   return "yesterday";
+        if (diff.TotalDays    < 30)  return $"{(int)diff.TotalDays} days ago";
+        if (diff.TotalDays    < 365) return $"{(int)(diff.TotalDays / 30)} months ago";
+        return $"{(int)(diff.TotalDays / 365)} years ago";
+    }
+
     private async System.Threading.Tasks.Task PushAsync(string md, string commentsJson)
     {
         var mdLit = JsonSerializer.Serialize(md);
-        // commentsJson is itself JSON; serialize it as a *string* so JS receives a string and parses it.
         var cmtLit = JsonSerializer.Serialize(commentsJson);
         var script =
             $"window.renderMarkdown && window.renderMarkdown({mdLit}, JSON.parse({cmtLit}));";
         try { await _webView.CoreWebView2.ExecuteScriptAsync(script); }
-        catch (Exception ex) { _setStatus($"Render failed: {ex.Message}"); }
+        catch (Exception ex) { _setStatus($"Render failed: {ex.Message}", null); }
     }
+
+    // ---------------- Watcher event handlers ----------------
 
     private void OnMdChanged(object sender, FileSystemEventArgs e) => HandleMdEvent(e.FullPath);
     private void OnMdRenamed(object sender, RenamedEventArgs e)    => HandleMdEvent(e.FullPath);
 
+    private bool IsRelevantPath(string fullPath)
+    {
+        // Top-level *.md or archive/*.md only — ignore anything deeper.
+        var dir = Path.GetDirectoryName(fullPath);
+        if (dir == null) return false;
+        if (Eq(dir, FolderPath)) return true;
+        if (Eq(dir, ArchiveDir)) return true;
+        return false;
+    }
+
     private void HandleMdEvent(string changedPath)
     {
+        if (!IsRelevantPath(changedPath)) return;
         _ui.Post(_ =>
         {
             PopulateFiles();
-            if (_currentFile != null &&
-                string.Equals(_currentFile, changedPath, StringComparison.OrdinalIgnoreCase))
-            {
+            if (_currentFile != null && Eq(_currentFile, changedPath))
                 _ = LoadCurrentAsync();
-            }
         }, null);
     }
 
     private void OnSidecarChanged(object sender, FileSystemEventArgs e)
     {
         if (DateTime.UtcNow < _suppressSidecarUntil) return;
+        if (!IsRelevantPath(e.FullPath)) return;
         _ui.Post(_ =>
         {
-            // If the sidecar that changed corresponds to the currently loaded file, re-render.
             if (_currentFile != null)
             {
                 var expected = CommentStore.SidecarPath(_currentFile);
-                if (string.Equals(expected, e.FullPath, StringComparison.OrdinalIgnoreCase))
-                    _ = LoadCurrentAsync();
+                if (Eq(expected, e.FullPath)) _ = LoadCurrentAsync();
             }
         }, null);
     }
@@ -532,4 +788,20 @@ internal sealed class ProjectTab : IDisposable
         try { _commentsWatcher.EnableRaisingEvents = false; _commentsWatcher.Dispose(); } catch { }
         try { _webView.Dispose(); } catch { }
     }
+}
+
+// =====================================================================================
+// Tiny DTO bound to ListBox items.
+// =====================================================================================
+internal sealed class FileEntry
+{
+    public string Path { get; }
+    public string Display { get; }
+
+    public FileEntry(string path)
+    {
+        Path = path;
+        Display = System.IO.Path.GetFileName(path);
+    }
+    public override string ToString() => Display;
 }

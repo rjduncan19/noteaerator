@@ -207,6 +207,46 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
   uninstall verified. Files saved as UTF-8 + BOM (Windows PowerShell
   5 falls over on BOM-less non-ASCII). _artifacts_:
   `POC/install.ps1`, `POC/uninstall.ps1`, `POC/README.md`
+- **ux**: round of polish requested by the user.
+  - **Branding**: `noteaerator` reads awkwardly. Window title is now
+    `Note Aerator (POC)`; the in-app header shows the icon plus
+    "Aerate your Notes" (no "POC" tag in the client area). csproj
+    `AssemblyTitle`/`Product` set to `Note Aerator`. Start Menu
+    shortcut renamed to `Note Aerator.lnk` (uninstall cleans up both
+    legacy and new names). `launch.ps1` and `install.ps1` user-facing
+    strings rebranded. The `noteaerator` identifier still appears in
+    code namespaces, file paths under `%APPDATA%\noteaerator\`, and
+    the exe filename — none of which are part of the UX surface.
+  - **Status bar timestamp**: status now shows
+    `welcome.md  ·  modified 5 minutes ago (2026-05-03 10:45:23)`,
+    plus comment count when present. Full path moved to the status
+    text's tooltip.
+  - **Remove project**: the toolbar button is gone; right-click any
+    project tab → "Remove project from list" with a confirmation
+    prompt. Files on disk are not touched.
+  - **Archive feature**: the file `TabControl` was replaced with a
+    `DockPanel` containing an active-files `ListBox` (fills) and an
+    `Expander` titled "Archive  (N)" docked at the bottom (collapsed
+    by default).
+    - Right-click an active file → "Move to Archive…" — the `.md`
+      and its sidecar `<basename>-comments.json` (if present) are
+      moved together to a `archive/` subfolder of the project.
+    - Right-click an archived file → "Restore from Archive" — moves
+      both files back to the top-level project folder.
+    - Both watchers (`*.md`, `*-comments.json`) are now recursive so
+      changes inside `archive/` trigger a refresh; the file list
+      filters to top-level + `archive/` only (anything deeper is
+      ignored).
+    - Selection is mutually exclusive between the two lists; a
+      `_suppressSelChange` guard prevents recursion when restoring
+      selection across a refresh.
+  - Build clean; smoke launch with a temp project (containing both
+    active and archived `.md` files) ran without crashes.
+  _artifacts_: `POC/Noteaerator/MainWindow.xaml`,
+  `POC/Noteaerator/MainWindow.xaml.cs`,
+  `POC/Noteaerator/Theme.xaml`,
+  `POC/Noteaerator/Noteaerator.csproj`,
+  `POC/install.ps1`, `POC/uninstall.ps1`, `POC/launch.ps1`
 
 - **doc**: extended `POC/implementation-choices.md` with (a) a "Future-fit"
   section showing how WYSIWYG editing (Milkdown / ToastUI / TipTap) and

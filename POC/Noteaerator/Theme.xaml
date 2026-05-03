@@ -233,10 +233,66 @@
     </Setter>
   </Style>
 
-  <!-- Splitter -->
-  <Style x:Key="SplitterStyle" TargetType="GridSplitter">
-    <Setter Property="Background" Value="{StaticResource BorderBrush}"/>
-    <Setter Property="Width" Value="1"/>
+  <!-- File list (active + archive) ListBox styling -->
+  <Style x:Key="FileListBoxItemStyle" TargetType="ListBoxItem">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="Padding" Value="10,4"/>
+    <Setter Property="Margin" Value="0"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBoxItem">
+          <Border x:Name="Bd"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{StaticResource AccentBrush}"
+                  BorderThickness="3,0,0,0"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Left"
+                              VerticalAlignment="Center"
+                              TextBlock.Foreground="{TemplateBinding Foreground}"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsSelected" Value="False">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="Transparent"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectedBrush}"/>
+              <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+              <Setter Property="FontWeight" Value="SemiBold"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="FileListBoxStyle" TargetType="ListBox">
+    <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="ItemContainerStyle" Value="{StaticResource FileListBoxItemStyle}"/>
+  </Style>
+
+  <!-- Archive expander at the bottom of the file pane -->
+  <Style x:Key="ArchiveExpanderStyle" TargetType="Expander">
+    <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+    <Setter Property="BorderThickness" Value="0,1,0,0"/>
+    <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Padding" Value="8,6"/>
   </Style>
 
 </ResourceDictionary>

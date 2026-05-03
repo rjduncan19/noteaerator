@@ -60,7 +60,7 @@ try {
     exit $LASTEXITCODE
   }
 
-  Write-Host "Launching noteaerator..." -ForegroundColor Green
+  Write-Host "Launching Note Aerator..." -ForegroundColor Green
   # --no-build: we just built. Start detached so closing this terminal doesn't kill the app.
   $exe = Join-Path $here "Noteaerator\bin\$Configuration\net8.0-windows\Noteaerator.exe"
   if (Test-Path $exe) {

@@ -70,10 +70,15 @@ $startMenuRoot = if ($perUser) {
 } else {
   Join-Path $Env:ProgramData 'Microsoft\Windows\Start Menu\Programs'
 }
-$lnk = if ($manifest -and $manifest.shortcut) { $manifest.shortcut } else { Join-Path $startMenuRoot "$AppName.lnk" }
-if (Test-Path $lnk) {
-  Remove-Item $lnk -Force
-  Write-Host "Removed shortcut $lnk"
+$lnk = if ($manifest -and $manifest.shortcut) { $manifest.shortcut } else { $null }
+$candidateLnks = @(
+  $lnk,
+  (Join-Path $startMenuRoot 'Note Aerator.lnk'),
+  (Join-Path $startMenuRoot "$AppName.lnk")
+) | Where-Object { $_ -and (Test-Path $_) } | Sort-Object -Unique
+foreach ($l in $candidateLnks) {
+  Remove-Item $l -Force -ErrorAction SilentlyContinue
+  Write-Host "Removed shortcut $l"
 }
 
 # Remove install dir

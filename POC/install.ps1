@@ -148,14 +148,17 @@ $startMenuRoot = if ($PerUser) {
 } else {
   Join-Path $Env:ProgramData 'Microsoft\Windows\Start Menu\Programs'
 }
-$lnkPath = Join-Path $startMenuRoot "$AppName.lnk"
+$lnkPath = Join-Path $startMenuRoot 'Note Aerator.lnk'
+# Best-effort cleanup of legacy shortcut from earlier install
+$legacyLnk = Join-Path $startMenuRoot "$AppName.lnk"
+if (Test-Path $legacyLnk) { Remove-Item -Force $legacyLnk -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $startMenuRoot -Force | Out-Null
 
 $wsh = New-Object -ComObject WScript.Shell
 $shortcut = $wsh.CreateShortcut($lnkPath)
 $shortcut.TargetPath       = $installedExe
 $shortcut.WorkingDirectory = $InstallPath
-$shortcut.Description      = 'noteaerator -- AI-first Markdown viewer'
+$shortcut.Description      = 'Note Aerator -- AI-first Markdown viewer'
 # Use the icon embedded in the exe (set by <ApplicationIcon> in the csproj)
 $shortcut.IconLocation     = "$installedExe,0"
 $shortcut.Save()
@@ -173,7 +176,7 @@ Set-Content -Path (Join-Path $InstallPath '.install-manifest.json') -Value $mani
 Write-Host ""
 Write-Host "[OK] Installed to:    $InstallPath"   -ForegroundColor Green
 Write-Host "[OK] Start Menu:      $lnkPath"        -ForegroundColor Green
-Write-Host "[OK] Run by typing:   noteaerator      (Win key, then type)"
+Write-Host "[OK] Run by typing:   note aerator     (Win key, then type)"
 Write-Host ""
 Write-Host "Note: WebView2 runtime is required at runtime. It is included with Edge"
 Write-Host "      on Windows 10/11, so no separate install is needed there."
