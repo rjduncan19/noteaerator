@@ -55,7 +55,9 @@ jobs:
         shell: pwsh
         run: |
           $proj = 'POC/Noteaerator/Noteaerator.csproj'
-          $out  = "POC/Noteaerator/bin/Release/publish-${{ matrix.rid }}"
+          # PublishDir is resolved RELATIVE TO THE PROJECT DIR by msbuild, not the
+          # cwd. Use an absolute path so it lands where we expect regardless.
+          $out = Join-Path (Resolve-Path .) "publish-${{ matrix.rid }}"
           dotnet publish $proj -c Release -r ${{ matrix.rid }} `
             --self-contained true `
             "-p:PublishDir=$out/" `
@@ -64,13 +66,13 @@ jobs:
           if (-not (Test-Path "$out/Noteaerator.exe")) {
             throw "Publish output is missing Noteaerator.exe"
           }
+          "OUT=$out" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Zip publish output
         shell: pwsh
         run: |
-          $out  = "POC/Noteaerator/bin/Release/publish-${{ matrix.rid }}"
           $name = "NoteAerator-$Env:TAG-${{ matrix.rid }}.zip"
-          Compress-Archive -Path "$out/*" -DestinationPath $name
+          Compress-Archive -Path "$Env:OUT/*" -DestinationPath $name
           $sz = (Get-Item $name).Length / 1MB
           Write-Host ("Created {0} ({1:N1} MB)" -f $name, $sz)
           "ASSET=$name" | Out-File -FilePath $env:GITHUB_ENV -Append
