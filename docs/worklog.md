@@ -305,6 +305,32 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
   Ctrl+F still toggles. Build clean; smoke launch passed.
   _artifacts_: `POC/Noteaerator/MainWindow.xaml`,
   `POC/Noteaerator/MainWindow.xaml.cs`
+- **release**: shipped pre-built binaries via GitHub Releases.
+  - Local sanity: `dotnet publish -c Release -r win-x64
+    --self-contained true` -> 161.8 MB; same for `win-arm64` -> 175.5
+    MB. Both ship arch-specific `WebView2Loader.dll`.
+  - Single-file commit of binaries was off the table (GitHub blocks
+    files >100 MB without LFS). Added
+    `.github/workflows/release.yml` instead: on push of a `v*` tag
+    (or manual workflow_dispatch), it publishes both architectures
+    on `windows-latest`, zips each output, uploads as artifacts,
+    then a separate `release` job (ubuntu-latest) downloads them and
+    creates a GitHub Release with both zips attached. Uses the
+    auto-injected `GITHUB_TOKEN`; no extra secrets required.
+  - Wrote `INSTALL.md` covering: download (with arch selection
+    snippet), Unblock step (Windows mark-of-the-web), extract,
+    optional Start Menu shortcut snippet, build-from-source path,
+    expected first-launch behavior, and uninstall. README's Status
+    section refreshed to mention pre-built binaries and link
+    INSTALL.md.
+  - Tagged `v0.1.0-poc` and pushed to trigger the workflow.
+  - Could not verify the run via API from this environment (the MCP
+    GitHub server returned 404 for this private repo); the user can
+    confirm at
+    <https://github.com/rjduncan19/noteaerator/actions> and the
+    release will land at /releases/tag/v0.1.0-poc.
+  _artifacts_: `.github/workflows/release.yml`, `INSTALL.md`,
+  `README.md`
 
 - **doc**: extended `POC/implementation-choices.md` with (a) a "Future-fit"
   section showing how WYSIWYG editing (Milkdown / ToastUI / TipTap) and
