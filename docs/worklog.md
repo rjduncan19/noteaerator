@@ -371,6 +371,14 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
   - Released as **v0.1.1-poc**.
   _artifacts_: `POC/Noteaerator/MainWindow.xaml.cs`,
   `POC/Noteaerator/Assets/viewer.html`
+- **doc**: wrote `POC/pipeline-design.md` capturing the analysis of
+  Microsoft Store publication (cost, MSIX packaging, asset suite,
+  CDN-libs gotcha, ~2-3 days of effort) and a layered "more
+  professional pipeline" roadmap (PR validation + tests, release
+  quality gates, code signing, MSIX, winget, Store, observability).
+  Highest-leverage starting point flagged: **we have zero tests
+  today**. **No path picked** per the decision-points ground rule.
+  _artifacts_: `POC/pipeline-design.md`
 
 - **doc**: extended `POC/implementation-choices.md` with (a) a "Future-fit"
   section showing how WYSIWYG editing (Milkdown / ToastUI / TipTap) and
