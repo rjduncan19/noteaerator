@@ -440,18 +440,14 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
   referenced by the manifest) and a `packaging/winget/README.md`
   with local-test, submission, and update-procedure instructions.
   _artifacts_: `packaging/winget/**`, `LICENSE`
-- **fix**: scroll preservation on refresh was running BEFORE
-  mermaid finished its async render, so the restored Y didn't
-  match the final layout. Also, switching files preserved scroll
-  when it should have reset to top. Reworked `renderMarkdown` to:
-  (a) accept the file path so it can detect file-change vs same-file
-  re-render; (b) restore scroll AFTER mermaid + final overlay
-  layout; (c) clamp the previous Y to the new document height so a
-  shorter page (e.g. comment deleted) doesn't end up scrolled past
-  the end; (d) scroll to top on file change. Search-result jumps
-  still take precedence (they fire after `renderMarkdown` resolves).
-  _artifacts_: `POC/Noteaerator/Assets/viewer.html`,
-  `POC/Noteaerator/MainWindow.xaml.cs`
+- **doc**: refreshed `POC/pipeline-design.md` to reflect what was
+  actually shipped: Layer A (tests + PR CI + Codespaces) is ✅,
+  Layer B is 🟡 (SBOM done, release-time test gate + coverage still
+  ⬜), Layer E is 🟡 (winget manifest authored / locally installable;
+  upstream submission still ⬜). Layers C/D/F/G remain ⬜. Status
+  markers added throughout. Decision section closed with the
+  free-wins tier and remaining open question about FTE Partner
+  Center benefits. _artifacts_: `POC/pipeline-design.md`
 
 - **doc**: extended `POC/implementation-choices.md` with (a) a "Future-fit"
   section showing how WYSIWYG editing (Milkdown / ToastUI / TipTap) and
