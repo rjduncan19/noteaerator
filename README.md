@@ -32,22 +32,36 @@ those artifacts in tools optimized for reading.
 
 ```
 .
-├── README.md           # this file — vision and orientation
-├── AGENTS.md           # operating instructions for AI agents (REQUIRED reading)
+├── README.md                 # this file -- vision and orientation
+├── INSTALL.md                # download / install / run for end users
+├── LICENSE
+├── AGENTS.md                 # operating instructions for AI agents
 ├── docs/
-│   └── worklog.md      # durable, append-only log of how this project was built
-├── POC/                # proof-of-concept Markdown viewer (see POC/README.md)
-│   ├── Noteaerator/    # WPF + WebView2 app (.NET 8)
-│   ├── icons/          # 16 SVG icon options + svg→ico converter
-│   ├── sample-notes/   # smoke-test notes (and a sample sidecar)
+│   └── worklog.md            # durable, append-only log of the build process
+├── .devcontainer/            # GitHub Codespaces config (Linux dev env)
+├── .github/workflows/
+│   ├── pr-ci.yml             # tests + cross-arch build on every PR
+│   └── release.yml           # tag-driven self-contained zips + SBOMs
+├── packaging/winget/         # winget package manifest (portable installer)
+├── POC/
+│   ├── Noteaerator/          # WPF + WebView2 host (net8.0-windows)
+│   ├── Noteaerator.Core/     # cross-platform library: SearchEngine, CommentStore, TimeFormat
+│   ├── Noteaerator.Tests/    # xUnit tests for Core (run on Linux + Windows)
+│   ├── Noteaerator.sln
+│   ├── icons/                # 16 SVG icon options + svg→ico converter
+│   ├── sample-notes/         # smoke-test notes (and a sample sidecar)
 │   ├── implementation-choices.md
 │   ├── comments-design.md
-│   ├── launch.ps1      # one-stop build + run launcher
+│   ├── search-design.md
+│   ├── pipeline-design.md
+│   ├── launch.ps1            # dev launcher (build + run from bin\Debug)
+│   ├── install.ps1           # real install with Start Menu entry
+│   ├── uninstall.ps1
 │   └── README.md
-├── notes/              # (planned) free-form notes
-├── projects/           # (planned) per-project folders with status + tasks
-├── tasks/              # (planned) cross-cutting todo lists
-└── .tmp/               # gitignored scratch space for transient agent output
+├── notes/                    # (planned) free-form notes
+├── projects/                 # (planned) per-project folders with status + tasks
+├── tasks/                    # (planned) cross-cutting todo lists
+└── .tmp/                     # gitignored scratch space for transient agent output
 ```
 
 Folders marked _(planned)_ will be created as real content shows up — we are

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: rjduncan19.NoteAerator
+PackageVersion: 0.1.1-poc
+PackageLocale: en-US
+Publisher: rjduncan19
+PublisherUrl: https://github.com/rjduncan19
+PublisherSupportUrl: https://github.com/rjduncan19/noteaerator/issues
+PackageName: Note Aerator
+PackageUrl: https://github.com/rjduncan19/noteaerator
+License: MIT
+LicenseUrl: https://github.com/rjduncan19/noteaerator/blob/main/LICENSE
+ShortDescription: AI-first Markdown viewer with sidecar comments and cross-file search.
+Description: |-
+  Note Aerator is a small Windows Markdown viewer designed for an
+  AI-first workflow. The Copilot CLI is the primary input surface;
+  Note Aerator renders the resulting .md files with Mermaid diagrams,
+  syntax highlighting, GFM tables / task lists, and an overlay-based
+  comment system that stores human-to-AI comments in a sidecar
+  <basename>-comments.json next to each note (so the source .md is
+  never touched and Drive/OneDrive sync conflicts are avoided).
+  Includes cross-file lexical search (Ctrl+F), an Archive section
+  per project, and auto-refresh on disk change via FileSystemWatcher.
+Moniker: noteaerator
+Tags:
+  - markdown
+  - notes
+  - viewer
+  - mermaid
+  - ai
+  - copilot
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

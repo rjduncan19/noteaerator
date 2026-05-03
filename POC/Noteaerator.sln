@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noteaerator", "Noteaerator\Noteaerator.csproj", "{E8DCBE9B-CF9F-4F3D-8E82-2CF8C0E9E6F7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noteaerator.Core", "Noteaerator.Core\Noteaerator.Core.csproj", "{7BF0E37A-0F30-495A-A2A4-6FC2DDF3BA24}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noteaerator.Tests", "Noteaerator.Tests\Noteaerator.Tests.csproj", "{A0935044-5441-49E5-9F2A-6C37A8CA5B00}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E8DCBE9B-CF9F-4F3D-8E82-2CF8C0E9E6F7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E8DCBE9B-CF9F-4F3D-8E82-2CF8C0E9E6F7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E8DCBE9B-CF9F-4F3D-8E82-2CF8C0E9E6F7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E8DCBE9B-CF9F-4F3D-8E82-2CF8C0E9E6F7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7BF0E37A-0F30-495A-A2A4-6FC2DDF3BA24}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7BF0E37A-0F30-495A-A2A4-6FC2DDF3BA24}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7BF0E37A-0F30-495A-A2A4-6FC2DDF3BA24}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7BF0E37A-0F30-495A-A2A4-6FC2DDF3BA24}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A0935044-5441-49E5-9F2A-6C37A8CA5B00}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A0935044-5441-49E5-9F2A-6C37A8CA5B00}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A0935044-5441-49E5-9F2A-6C37A8CA5B00}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A0935044-5441-49E5-9F2A-6C37A8CA5B00}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

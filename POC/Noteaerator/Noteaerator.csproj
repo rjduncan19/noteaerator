@@ -25,4 +25,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Noteaerator.Core\Noteaerator.Core.csproj" />
+  </ItemGroup>
+
 </Project>

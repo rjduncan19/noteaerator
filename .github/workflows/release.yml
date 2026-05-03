@@ -77,6 +77,33 @@ jobs:
           Write-Host ("Created {0} ({1:N1} MB)" -f $name, $sz)
           "ASSET=$name" | Out-File -FilePath $env:GITHUB_ENV -Append
 
+      - name: Generate SBOM (SPDX) for ${{ matrix.rid }}
+        shell: pwsh
+        run: |
+          dotnet tool install --global Microsoft.Sbom.DotNetTool
+          $sbomDir = Join-Path (Resolve-Path .) "sbom-${{ matrix.rid }}"
+          New-Item -ItemType Directory -Path $sbomDir -Force | Out-Null
+          # Generate SPDX 2.2 SBOM over the publish output.
+          sbom-tool generate `
+            -b "$Env:OUT" `
+            -bc "$Env:OUT" `
+            -pn "Note Aerator" `
+            -pv "$Env:TAG" `
+            -ps "rjduncan19" `
+            -nsb "https://github.com/rjduncan19/noteaerator" `
+            -m $sbomDir
+          # Bundle the SBOM into a small zip alongside the main release zip.
+          $sbomZip = "NoteAerator-$Env:TAG-${{ matrix.rid }}.sbom.zip"
+          Compress-Archive -Path "$sbomDir/*" -DestinationPath $sbomZip
+          "SBOM_ASSET=$sbomZip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoteAerator-${{ matrix.rid }}-sbom
+          path: ${{ env.SBOM_ASSET }}
+          retention-days: 7
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

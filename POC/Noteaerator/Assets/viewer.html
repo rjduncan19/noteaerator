@@ -691,11 +691,21 @@
 
       // -------------------- Main render entry point --------------------
 
-      window.renderMarkdown = async function (markdownText, commentFile) {
+      let _lastFilePath = null;
+
+      window.renderMarkdown = async function (markdownText, commentFile, filePath) {
         const root = document.getElementById('content');
         _root = root;
         _comments = (commentFile && Array.isArray(commentFile.comments)) ? commentFile.comments : [];
-        const scrollY = window.scrollY;
+
+        // Decide scroll behavior BEFORE we mutate the DOM.
+        // - Same file (re-render due to disk change, comment add/delete, etc.)  -> preserve scroll
+        // - Different file (user switched / search-jumped to another note)      -> scroll to top
+        const incomingPath = (typeof filePath === 'string') ? filePath : null;
+        const isFileChange = incomingPath !== _lastFilePath;
+        const prevScrollY  = window.scrollY;
+        _lastFilePath = incomingPath;
+
         try {
           // Render the base content (no overlay yet).
           const rendered = transformAiComments(md.render(markdownText || ''));
@@ -717,8 +727,9 @@
               err.textContent = 'mermaid error: ' + (e && e.message || e);
               root.appendChild(err);
             }
-            // Mermaid changes block heights; re-layout.
-            scheduleLayout();
+            // Mermaid changes block heights; re-layout overlays now that final
+            // sizes are known, BEFORE we restore scroll.
+            layoutOverlays();
           }
 
           // Watch for any subsequent size changes (window resize, font load, etc.)
@@ -726,8 +737,15 @@
           _ro = new ResizeObserver(scheduleLayout);
           _ro.observe(root);
 
-          // Restore scroll position so add/delete doesn't jerk the view.
-          window.scrollTo(0, scrollY);
+          // Restore (or reset) scroll AFTER mermaid + final overlay layout.
+          // Clamp the previous Y to the new document height in case content
+          // shrank (e.g. a comment was deleted and the page is shorter now).
+          if (isFileChange) {
+            window.scrollTo(0, 0);
+          } else {
+            const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+            window.scrollTo(0, Math.min(prevScrollY, maxY));
+          }
         } catch (e) {
           root.innerHTML = '<div class="render-error">render error: ' +
                            escapeHtml(String(e && e.message || e)) + '</div>';

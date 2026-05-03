@@ -379,6 +379,79 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
   Highest-leverage starting point flagged: **we have zero tests
   today**. **No path picked** per the decision-points ground rule.
   _artifacts_: `POC/pipeline-design.md`
+- **decision**: pursue the "free wins" tier from
+  `POC/pipeline-design.md` — extract a Core library, write tests,
+  add PR-validation workflow that runs on GitHub-hosted runners
+  (so it works the same in a Codespace, not a local box), generate
+  SBOMs in the release workflow, and ship a winget manifest.
+  Microsoft Store deferred (FTE benefits for Partner Center are a
+  separate question to chase via internal HR/dev-relations
+  channels).
+- **refactor**: extracted **`Noteaerator.Core`** (`net8.0`,
+  cross-platform) containing `SearchEngine`, `SearchHit`,
+  `CommentStore`, `CommentFile/Entry/Anchor`, and `TimeFormat`
+  (relative-time helper). The WPF host project now references it.
+  Created an `.sln`. The Core library builds and runs on any OS
+  (it's pure .NET 8); only the WPF host is `net8.0-windows`.
+  _artifacts_: `POC/Noteaerator.Core/**`, `POC/Noteaerator.sln`,
+  `POC/Noteaerator/Noteaerator.csproj`,
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **tests**: created **`Noteaerator.Tests`** (xUnit, `net8.0`,
+  cross-platform) with **22 tests** across:
+  - `TimeFormatTests` — relative-time formatting at every threshold
+    boundary (just-now, minutes, hours, yesterday, days, months,
+    years).
+  - `CommentStoreTests` — sidecar path naming, default load,
+    add/load round-trip, last-comment-deletes-file, atomic save
+    leaves no `.tmp`.
+  - `SearchEngineTests` — empty query, project-scope across files +
+    `archive/`, file-scope only scans one file, case-insensitivity,
+    sidecar comment-body matching, snippet ellipsis truncation,
+    200-hit cap, display string formatting.
+  - All 22 pass locally. _artifacts_: `POC/Noteaerator.Tests/**`
+- **infra**: added `.github/workflows/pr-ci.yml` triggered on
+  `pull_request` and pushes to `main`:
+  - **Linux job** restores + builds Core + Tests with
+    `-warnaserror` and runs `dotnet test` (writes `.trx`).
+  - **Windows job** matrix builds the WPF host for both `win-x64`
+    and `win-arm64` to keep the host buildable.
+  - Uploads test results as an artifact.
+  Concurrency-grouped per branch so a new push cancels the previous.
+  _artifacts_: `.github/workflows/pr-ci.yml`
+- **infra**: added `.devcontainer/devcontainer.json` based on
+  `mcr.microsoft.com/devcontainers/dotnet:1-8.0` so anyone can open
+  a GitHub Codespace and immediately work on Core + Tests (the WPF
+  host can't run in a Linux container, but Core + Tests do — this
+  is exactly why the refactor was done first). Includes the C# Dev
+  Kit, GitHub PR, and YAML extensions; sets the default solution.
+  _artifacts_: `.devcontainer/devcontainer.json`
+- **release**: added an SBOM step to `release.yml`. Per arch, after
+  the publish step, install `Microsoft.Sbom.DotNetTool` and run
+  `sbom-tool generate` over the publish output, producing an SPDX
+  2.2 manifest. Zip the SBOM directory into a sibling release
+  asset (`NoteAerator-<tag>-<rid>.sbom.zip`). _artifacts_:
+  `.github/workflows/release.yml`
+- **packaging**: added a `winget` manifest under
+  `packaging/winget/rjduncan19.NoteAerator/0.1.1-poc/` (three YAML
+  files per winget v1.6 schema: version, locale, installer).
+  Treats the app as a `portable` installer wrapped in a `zip`,
+  pointing at the GitHub Release zip URL with the SHA256 of each
+  arch (computed via `gh release download`). Added `LICENSE` (MIT,
+  referenced by the manifest) and a `packaging/winget/README.md`
+  with local-test, submission, and update-procedure instructions.
+  _artifacts_: `packaging/winget/**`, `LICENSE`
+- **fix**: scroll preservation on refresh was running BEFORE
+  mermaid finished its async render, so the restored Y didn't
+  match the final layout. Also, switching files preserved scroll
+  when it should have reset to top. Reworked `renderMarkdown` to:
+  (a) accept the file path so it can detect file-change vs same-file
+  re-render; (b) restore scroll AFTER mermaid + final overlay
+  layout; (c) clamp the previous Y to the new document height so a
+  shorter page (e.g. comment deleted) doesn't end up scrolled past
+  the end; (d) scroll to top on file change. Search-result jumps
+  still take precedence (they fire after `renderMarkdown` resolves).
+  _artifacts_: `POC/Noteaerator/Assets/viewer.html`,
+  `POC/Noteaerator/MainWindow.xaml.cs`
 
 - **doc**: extended `POC/implementation-choices.md` with (a) a "Future-fit"
   section showing how WYSIWYG editing (Milkdown / ToastUI / TipTap) and

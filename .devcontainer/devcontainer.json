@@ -1,0 +1,27 @@
+{
+  "name": "Note Aerator dev",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:1-8.0",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.csharp",
+        "GitHub.vscode-pull-request-github",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "dotnet.defaultSolution": "POC/Noteaerator.sln"
+      }
+    }
+  },
+  "postCreateCommand": "dotnet restore POC/Noteaerator.Core/Noteaerator.Core.csproj && dotnet restore POC/Noteaerator.Tests/Noteaerator.Tests.csproj",
+  "remoteUser": "vscode",
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "4gb"
+  },
+  "// note": "WPF/WebView2 cannot run in a Linux Codespace. The Core library and Tests project are net8.0 and build/test cross-platform; the WPF project (Noteaerator/) is net8.0-windows and is intentionally excluded from the postCreateCommand restore."
+}
