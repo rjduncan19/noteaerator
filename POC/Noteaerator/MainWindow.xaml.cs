@@ -21,6 +21,7 @@ public partial class MainWindow : Window
 
     private readonly List<ProjectTab> _projects = new();
     private readonly string _configPath;
+    private System.Windows.Threading.DispatcherTimer? _searchDebounce;
 
     public MainWindow()
     {
@@ -101,6 +102,122 @@ public partial class MainWindow : Window
     {
         StatusText.Text = text;
         StatusText.ToolTip = string.IsNullOrEmpty(tooltip) ? null : tooltip;
+    }
+
+    // ---------------- Search ----------------
+
+    private ProjectTab? CurrentProject =>
+        ProjectsTabs.SelectedItem is TabItem ti && ti.Tag is ProjectTab pt ? pt : null;
+
+    private void OnSearchButtonClick(object sender, RoutedEventArgs e) => OpenSearch();
+    private void OnOpenSearchExecuted(object sender, ExecutedRoutedEventArgs e) => OpenSearch();
+    private void OnCloseSearchClick(object sender, RoutedEventArgs e) => CloseSearch();
+
+    private void OnCloseSearchExecuted(object sender, ExecutedRoutedEventArgs e) => CloseSearch();
+    private void OnCloseSearchCanExecute(object sender, CanExecuteRoutedEventArgs e)
+        => e.CanExecute = SearchPanel.Visibility == Visibility.Visible;
+
+    private void OpenSearch()
+    {
+        if (CurrentProject == null)
+        {
+            SetStatus("Add a project folder first to enable search.", null);
+            return;
+        }
+        SearchPanel.Visibility = Visibility.Visible;
+        // If we have an open file, allow scoping to it; otherwise force project scope.
+        var hasFile = CurrentProject.CurrentFile != null;
+        ScopeFile.IsEnabled = hasFile;
+        if (!hasFile && ScopeFile.IsChecked == true)
+        {
+            ScopeProject.IsChecked = true;
+        }
+        SearchInput.Focus();
+        SearchInput.SelectAll();
+        UpdateSearchSummary();
+    }
+
+    private void CloseSearch()
+    {
+        SearchPanel.Visibility = Visibility.Collapsed;
+    }
+
+    private void OnSearchInputKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Escape) { CloseSearch(); e.Handled = true; }
+        else if (e.Key == System.Windows.Input.Key.Down) { SearchResults.Focus();
+            if (SearchResults.Items.Count > 0) SearchResults.SelectedIndex = 0;
+            e.Handled = true; }
+        else if (e.Key == System.Windows.Input.Key.Enter) { ActivateSelectedResult(); e.Handled = true; }
+    }
+
+    private void OnSearchResultsKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter) { ActivateSelectedResult(); e.Handled = true; }
+        else if (e.Key == System.Windows.Input.Key.Escape) { CloseSearch(); e.Handled = true; }
+    }
+
+    private void OnSearchInputChanged(object sender, TextChangedEventArgs e)
+    {
+        // Debounce by 180ms so typing doesn't spawn a scan per keystroke.
+        if (_searchDebounce == null)
+        {
+            _searchDebounce = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(180)
+            };
+            _searchDebounce.Tick += (_, _) =>
+            {
+                _searchDebounce!.Stop();
+                _ = RunSearchAsync();
+            };
+        }
+        _searchDebounce.Stop();
+        _searchDebounce.Start();
+    }
+
+    private void OnScopeChanged(object sender, RoutedEventArgs e) => _ = RunSearchAsync();
+
+    private async System.Threading.Tasks.Task RunSearchAsync()
+    {
+        SearchResults.ItemsSource = null;
+        var query = (SearchInput.Text ?? "").Trim();
+        if (query.Length == 0) { UpdateSearchSummary(); return; }
+        var pt = CurrentProject;
+        if (pt == null) return;
+
+        var fileScope = ScopeFile.IsChecked == true && pt.CurrentFile != null;
+        var rootForScan = fileScope ? null : pt.FolderPath;
+        var singleFile = fileScope ? pt.CurrentFile : null;
+
+        SearchSummary.Text = "searching...";
+        var hits = await System.Threading.Tasks.Task.Run(() =>
+            SearchEngine.Search(query, rootForScan, singleFile));
+
+        SearchResults.ItemsSource = hits;
+        var pluralH = hits.Count == 1 ? "" : "s";
+        var scopeLbl = fileScope ? "in file" : "in project";
+        SearchSummary.Text = $"{hits.Count} hit{pluralH} {scopeLbl}";
+    }
+
+    private void UpdateSearchSummary()
+    {
+        SearchSummary.Text = string.IsNullOrEmpty(SearchInput.Text)
+            ? "type to search"
+            : "";
+    }
+
+    private void OnSearchResultActivate(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        => ActivateSelectedResult();
+
+    private void ActivateSelectedResult()
+    {
+        if (SearchResults.SelectedItem is not SearchHit hit) return;
+        var pt = CurrentProject;
+        if (pt == null) return;
+        pt.OpenFileForSearch(hit);
+        // Keep search panel open so the user can pick the next result.
+        SearchInput.Focus();
     }
 
     private void AddProject(string folderPath)
@@ -232,9 +349,133 @@ internal static class CommentStore
 }
 
 // =====================================================================================
-// One project = one folder. File pane on the left, WebView2 renderer on the right.
-//   File pane = [active files ListBox] + [Archive expander → archived files ListBox].
+// Search engine — naive scan over .md files and their sidecar comments.
 // =====================================================================================
+
+internal sealed class SearchHit
+{
+    public string FilePath { get; init; } = "";
+    public string FileName => System.IO.Path.GetFileName(FilePath);
+    public bool IsComment { get; init; }
+    public int LineNumber { get; init; }    // 1-based; 0 if not applicable
+    public string? CommentId { get; init; } // for comment hits
+    public string Snippet { get; init; } = "";
+    public string Term { get; init; } = "";
+
+    // Display strings used by the simple ListBox template (defined inline in code-behind).
+    public string Display1 => IsComment
+        ? $"💬  {FileName}  ·  comment"
+        : $"{FileName}  ·  line {LineNumber}";
+    public string Display2 => Snippet;
+}
+
+internal static class SearchEngine
+{
+    private const int MaxHits = 200;
+
+    /// <summary>
+    /// Either provide <paramref name="folderPath"/> for project-wide scan, or
+    /// <paramref name="singleFile"/> to limit to one file. Exactly one should
+    /// be non-null.
+    /// </summary>
+    public static List<SearchHit> Search(string query, string? folderPath, string? singleFile)
+    {
+        var results = new List<SearchHit>();
+        if (string.IsNullOrWhiteSpace(query)) return results;
+        var cmp = StringComparison.OrdinalIgnoreCase;
+
+        IEnumerable<string> files;
+        if (singleFile != null)
+        {
+            files = new[] { singleFile };
+        }
+        else if (folderPath != null)
+        {
+            files = EnumerateProjectMd(folderPath);
+        }
+        else
+        {
+            return results;
+        }
+
+        foreach (var file in files)
+        {
+            if (results.Count >= MaxHits) break;
+            ScanFile(file, query, cmp, results);
+            if (results.Count >= MaxHits) break;
+            ScanSidecar(file, query, cmp, results);
+        }
+        return results;
+    }
+
+    private static IEnumerable<string> EnumerateProjectMd(string folderPath)
+    {
+        IEnumerable<string> SafeEnum(string dir)
+        {
+            try   { return Directory.EnumerateFiles(dir, "*.md", SearchOption.TopDirectoryOnly); }
+            catch { return Array.Empty<string>(); }
+        }
+        foreach (var f in SafeEnum(folderPath).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            yield return f;
+        var arch = Path.Combine(folderPath, "archive");
+        if (Directory.Exists(arch))
+            foreach (var f in SafeEnum(arch).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+                yield return f;
+    }
+
+    private static void ScanFile(string path, string query, StringComparison cmp, List<SearchHit> results)
+    {
+        string[] lines;
+        try { lines = File.ReadAllLines(path); }
+        catch { return; }
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (results.Count >= MaxHits) return;
+            if (lines[i].IndexOf(query, cmp) >= 0)
+            {
+                results.Add(new SearchHit
+                {
+                    FilePath = path,
+                    LineNumber = i + 1,
+                    Snippet = MakeSnippet(lines[i], query, cmp),
+                    Term = query
+                });
+            }
+        }
+    }
+
+    private static void ScanSidecar(string mdPath, string query, StringComparison cmp, List<SearchHit> results)
+    {
+        var data = CommentStore.Load(mdPath);
+        foreach (var c in data.Comments)
+        {
+            if (results.Count >= MaxHits) return;
+            if (!string.IsNullOrEmpty(c.Body) && c.Body.IndexOf(query, cmp) >= 0)
+            {
+                results.Add(new SearchHit
+                {
+                    FilePath = mdPath,
+                    IsComment = true,
+                    CommentId = c.Id,
+                    Snippet = MakeSnippet(c.Body, query, cmp),
+                    Term = query
+                });
+            }
+        }
+    }
+
+    private static string MakeSnippet(string line, string query, StringComparison cmp)
+    {
+        const int radius = 60;
+        var idx = line.IndexOf(query, cmp);
+        if (idx < 0) return line.Length > 120 ? line.Substring(0, 120) + "…" : line;
+        var start = Math.Max(0, idx - radius);
+        var end = Math.Min(line.Length, idx + query.Length + radius);
+        var prefix = start > 0 ? "…" : "";
+        var suffix = end < line.Length ? "…" : "";
+        return prefix + line.Substring(start, end - start).Replace("\t", "  ") + suffix;
+    }
+}
 
 internal sealed class ProjectTab : IDisposable
 {
@@ -242,6 +483,7 @@ internal sealed class ProjectTab : IDisposable
 
     public string FolderPath { get; }
     public Grid Root { get; }
+    public string? CurrentFile => _currentFile;
 
     private readonly ListBox _activeList;
     private readonly ListBox _archivedList;
@@ -585,6 +827,34 @@ internal sealed class ProjectTab : IDisposable
         _ = LoadCurrentAsync();
     }
 
+    private SearchHit? _pendingScroll;
+
+    /// <summary>
+    /// Open the file referenced by a search hit and ask the renderer to scroll
+    /// to either the matching line or the matching sidecar comment.
+    /// </summary>
+    public void OpenFileForSearch(SearchHit hit)
+    {
+        var fe = _activeFiles.FirstOrDefault(f => Eq(f.Path, hit.FilePath))
+              ?? _archivedFiles.FirstOrDefault(f => Eq(f.Path, hit.FilePath));
+        if (fe == null) return;
+
+        var inArchive = _archivedFiles.Contains(fe);
+        if (inArchive) _archiveExpander.IsExpanded = true;
+
+        _suppressSelChange = true;
+        try
+        {
+            if (inArchive) { _archivedList.SelectedItem = fe; _activeList.SelectedItem = null; }
+            else           { _activeList.SelectedItem   = fe; _archivedList.SelectedItem = null; }
+        }
+        finally { _suppressSelChange = false; }
+
+        _currentFile = fe.Path;
+        _pendingScroll = hit;
+        _ = LoadCurrentAsync();
+    }
+
     // ---------------- WebView2 + render plumbing ----------------
 
     private async System.Threading.Tasks.Task InitWebViewAsync()
@@ -739,7 +1009,29 @@ internal sealed class ProjectTab : IDisposable
         var script =
             $"window.renderMarkdown && window.renderMarkdown({mdLit}, JSON.parse({cmtLit}));";
         try { await _webView.CoreWebView2.ExecuteScriptAsync(script); }
-        catch (Exception ex) { _setStatus($"Render failed: {ex.Message}", null); }
+        catch (Exception ex) { _setStatus($"Render failed: {ex.Message}", null); return; }
+
+        // If a search-result jump is pending, ask the renderer to scroll to it.
+        if (_pendingScroll is { } hit)
+        {
+            _pendingScroll = null;
+            try
+            {
+                if (hit.IsComment && !string.IsNullOrEmpty(hit.CommentId))
+                {
+                    var idLit = JsonSerializer.Serialize(hit.CommentId);
+                    await _webView.CoreWebView2.ExecuteScriptAsync(
+                        $"window.scrollToCommentId && window.scrollToCommentId({idLit});");
+                }
+                else if (!string.IsNullOrEmpty(hit.Term))
+                {
+                    var termLit = JsonSerializer.Serialize(hit.Term);
+                    await _webView.CoreWebView2.ExecuteScriptAsync(
+                        $"window.scrollToText && window.scrollToText({termLit});");
+                }
+            }
+            catch { /* best-effort */ }
+        }
     }
 
     // ---------------- Watcher event handlers ----------------

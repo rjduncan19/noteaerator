@@ -619,6 +619,41 @@
         _rafId = requestAnimationFrame(layoutOverlays);
       }
 
+      // -------------------- Search hooks (called from C# after render) --------------------
+
+      window.scrollToCommentId = function (id) {
+        if (!id || !_root) return;
+        const card = _root.querySelector(`.sidecar-comment[data-comment-id="${String(id).replace(/"/g,'\\"')}"]`);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.style.outline = '3px solid #f59e0b';
+          card.style.outlineOffset = '2px';
+          setTimeout(() => { card.style.outline = ''; card.style.outlineOffset = ''; }, 1400);
+        }
+      };
+
+      window.scrollToText = function (term) {
+        if (!term || !_root) return;
+        // Walk text nodes inside the article; find the first occurrence and scroll its parent block into view.
+        const needle = String(term).toLowerCase();
+        const walker = document.createTreeWalker(_root, NodeFilter.SHOW_TEXT, null);
+        let node;
+        while ((node = walker.nextNode())) {
+          if ((node.nodeValue || '').toLowerCase().includes(needle)) {
+            // Find nearest anchored ancestor (or the parent element) and scroll/flash it.
+            let el = node.parentElement;
+            while (el && el !== _root && !(el.dataset && el.dataset.anchor)) el = el.parentElement;
+            const target = el || node.parentElement;
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              target.classList.add('anchor-flash');
+              setTimeout(() => target.classList.remove('anchor-flash'), 1400);
+            }
+            return;
+          }
+        }
+      };
+
       // -------------------- Main render entry point --------------------
 
       window.renderMarkdown = async function (markdownText, commentFile) {

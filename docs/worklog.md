@@ -247,6 +247,46 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
   `POC/Noteaerator/Theme.xaml`,
   `POC/Noteaerator/Noteaerator.csproj`,
   `POC/install.ps1`, `POC/uninstall.ps1`, `POC/launch.ps1`
+- **doc**: wrote `POC/search-design.md` capturing the search-feature
+  design space (current state = no search; dimensions = filename /
+  find-in-page / cross-file lexical / cross-project / sidecar /
+  semantic) and three implementation tiers, including a fair pass
+  over semantic options (local ONNX embeddings with model
+  candidates, cloud APIs, Copilot CLI hand-off, hybrid). Listed UX
+  questions and a suggested sequencing. **No path picked** per the
+  decision-points ground rule. _artifacts_: `POC/search-design.md`
+- **decision**: search = naive lexical scan over `.md` files +
+  sidecar comments; UI = magnifier button top-right that expands a
+  search panel with scope radios (whole project default, this file);
+  Ctrl+F also opens the panel. Indexing deferred.
+- **feature**: implemented cross-file lexical search.
+  - `SearchEngine.Search(query, folderPath?, singleFile?)` does a
+    case-insensitive substring scan over every `.md` in the project
+    (top-level + `archive/`) and over each sidecar's
+    `comments[].body`. Hits capped at 200. Returns `SearchHit`
+    records (file path, line number, snippet, optional comment id +
+    term used).
+  - `MainWindow` gained a magnifier button in the top-right corner of
+    the header, a `KeyBinding Ctrl+F` and `Esc` (via
+    `ApplicationCommands.Find` / `Close`), and a 440px overlay panel
+    anchored top-right with input + scope radios + results list.
+    Search is debounced 180 ms; `↓`/`Enter` from the input moves to
+    the results list and activates; `Esc` closes from anywhere.
+  - Click / `Enter` on a hit opens the file in the active project
+    (auto-expanding the Archive section if needed) and asks the
+    renderer to scroll to it: `window.scrollToCommentId(id)` for
+    sidecar hits, `window.scrollToText(term)` for content hits.
+    Both flash the target with the existing `anchor-flash` class.
+  - `ProjectTab` exposes `CurrentFile` and a new
+    `OpenFileForSearch(SearchHit)` entry point; PushAsync now
+    triggers the scroll script when a hit is pending.
+  - Sanity-check via reflection: scanning `POC/sample-notes` for
+    "mermaid" returns 3 content lines + 1 comment hit; "Sample
+    sidecar" returns the comment hit. Build clean; smoke launch
+    passed. _artifacts_: `POC/Noteaerator/MainWindow.xaml`,
+    `POC/Noteaerator/MainWindow.xaml.cs`,
+    `POC/Noteaerator/Assets/viewer.html`,
+    `POC/search-design.md`
 
 - **doc**: extended `POC/implementation-choices.md` with (a) a "Future-fit"
   section showing how WYSIWYG editing (Milkdown / ToastUI / TipTap) and
