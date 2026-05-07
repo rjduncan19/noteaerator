@@ -9,6 +9,17 @@ status. The Copilot CLI is the primary input surface: you talk to it, and it
 produces and maintains the underlying artifacts. Humans view and lightly edit
 those artifacts in tools optimized for reading.
 
+---
+
+> **Status: Pre-MVP — early POC, planning & architecture phase.**
+> A working Markdown-viewer POC ships under `POC/` with prebuilt
+> Windows binaries, but the broader vision (AI-first authoring loop,
+> WYSIWYG editing, sync conventions, semantic search) is not yet built.
+> Code, docs, and decisions are evolving in the open. Feedback welcome;
+> production use is not. See the full [Status](#status) section below.
+
+---
+
 ## Vision
 
 - **AI-first input.** The expected way to create and modify content is through
