@@ -1,0 +1,24 @@
+Note Aerator is a WPF / .NET 8 desktop application packaged as MSIX via
+the Desktop Bridge. The runFullTrust capability is required for any
+Win32/.NET desktop app shipped as MSIX (paired with
+EntryPoint="Windows.FullTrustApplication"); without it the app cannot
+launch.
+
+It is used solely to:
+
+1. Host WPF, which is itself a full-trust framework that calls Win32
+   graphics and windowing APIs not reachable from AppContainer.
+2. Read Markdown files from folders the user explicitly chooses via a
+   folder picker (typically inside OneDrive, Dropbox, or Google Drive,
+   i.e. outside the package container). Files are opened with
+   FileMode.Open + FileAccess.Read; the app never writes to user .md
+   files.
+3. Watch those user-chosen folders for changes via FileSystemWatcher so
+   the rendered view stays in sync when the user edits a note in
+   another app.
+4. Host the WPF WebView2 control, which renders the Markdown.
+
+The app has no background services, no elevation prompts, no network
+access beyond the rendering libraries the bundled viewer.html loads
+into the WebView2 sandbox, and no telemetry. Source is MIT-licensed at
+https://github.com/rjduncan19/noteaerator.
