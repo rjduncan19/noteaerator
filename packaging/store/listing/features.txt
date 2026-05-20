@@ -1,0 +1,17 @@
+Fast, distraction-free Markdown viewer
+GitHub-flavored Markdown with tables and task lists
+Syntax-highlighted code blocks
+Mermaid diagram rendering
+LaTeX-style math rendering
+Projects sidebar for any folder of .md files
+Multi-tab browsing across files
+Live reload on file save, scroll position preserved
+Native Ctrl+F search inside the rendered document
+Inline AI directives via <!-- @ai: ... --> comments
+Right-click sidecar comments without touching your source files
+Set as default app for .md and .markdown files
+Reliable on OneDrive, Dropbox, and Google Drive folders
+Renders relative images and local assets
+Light and dark friendly typography
+Local-only: no account, no cloud sync, no telemetry
+Free and open source (MIT license)

@@ -7,6 +7,53 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-05-20 — Microsoft Store submission package
+
+- **decision**: target the Store with an MSIX bundle built from a
+  self-contained .NET publish; no separate code-signing step because the
+  Store signs the bundle during ingestion. Single architecture (x64) for
+  the first submission; arm64 is opt-in via a build script flag.
+  _artifacts_: `packaging/store/SUBMISSION.md`
+- **decision**: chose `POC/icons/12-decanter.svg` as the canonical app icon
+  for the Store (SHA1 of its 256×256 render matches the 256-frame already
+  embedded in `app.ico`). Background color `#1e293b` is reused as the tile
+  `BackgroundColor` and the fill for non-square Wide / Splash compositions.
+  _artifacts_: `packaging/store/generate-assets.py`,
+  `packaging/store/Assets/`
+- **code**: generated the full MSIX visual-asset set from the source SVG —
+  47 PNGs covering `Square44/71/150/310`, `Wide310x150`, `SplashScreen`,
+  `StoreLogo`, and `LockScreenLogo` at the required scales, plus
+  `Square44x44` target-size plated + unplated variants. Also produced the
+  300×300 listing logo. _artifacts_: `packaging/store/Assets/*.png`,
+  `packaging/store/listing/StoreLogo-300x300.png`
+- **code**: authored `Package.appxmanifest` for a WPF/.NET 8 MSIX — uses
+  `Windows.FullTrustApplication` entry point + `runFullTrust` capability,
+  declares a `.md`/`.markdown` file-type association, and leaves three
+  documented placeholders for the per-account identity values
+  (`__PARTNER_CENTER_IDENTITY_NAME__`, `__PARTNER_CENTER_PUBLISHER_ID__`,
+  `__PARTNER_CENTER_PUBLISHER_DISPLAY_NAME__`).
+  _artifacts_: `packaging/store/Package.appxmanifest`
+- **code**: authored `build-msix.ps1` — validates placeholders, restores
+  `Microsoft.Windows.SDK.BuildTools` on demand into `.tools/` (no Windows
+  SDK install required), publishes self-contained per architecture, stages
+  payload + Assets + manifest, runs `makeappx pack` per arch, then
+  `makeappx bundle` over the staging dir. Honors `-Version` and
+  `-IncludeArm64` flags. _artifacts_: `packaging/store/build-msix.ps1`
+- **verify**: end-to-end build succeeded — produced
+  `dist/NoteAerator-0.1.2.0-x64.msix` and `NoteAerator-0.1.2.0.msixbundle`
+  (~69 MB each). Bundle re-unpacked with `makeappx unbundle` and the
+  inner `.msix` with `makeappx unpack`; manifest inside reflects the
+  expected Identity, VisualElements, file-type association, and
+  `runFullTrust` capability.
+- **doc**: wrote the listing copy under `packaging/store/listing/`
+  (`description.md`, `short-description.txt`, `features.txt`,
+  `whats-new.md`, `system-requirements.txt`,
+  `age-rating-answers.md`) and the end-to-end Partner Center walkthrough
+  in `packaging/store/SUBMISSION.md`. The walkthrough covers identity
+  values, build, screenshots, pricing, properties, age rating, packages,
+  store listing, system requirements, and certification notes.
+  _artifacts_: `packaging/store/listing/`, `packaging/store/SUBMISSION.md`
+
 ## 2026-05-20 — Watcher reliability on OneDrive folders
 
 - **code**: new top-level `.md` files weren't appearing in projects rooted

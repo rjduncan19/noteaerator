@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Package.appxmanifest for the Note Aerator MSIX package.
+
+  THREE VALUES MUST BE FILLED IN before this manifest will pass Store
+  ingestion. After reserving the app name "Note Aerator" in Partner Center,
+  go to:
+
+      Partner Center → My apps → Note Aerator
+        → Product management → Product identity
+
+  and copy the three values shown there into the marked spots below:
+
+      <Identity Name="__PARTNER_CENTER_IDENTITY_NAME__" ... />
+      <Identity ... Publisher="__PARTNER_CENTER_PUBLISHER_ID__" ... />
+      <Properties>
+        <PublisherDisplayName>__PARTNER_CENTER_PUBLISHER_DISPLAY_NAME__</PublisherDisplayName>
+
+  Typical shape:
+      Identity Name:            12345AppName.NoteAerator  (or similar)
+      Publisher:                CN=ABCDEF12-3456-7890-ABCD-1234567890AB
+      PublisherDisplayName:     Richard Duncan            (or whatever you
+                                                          registered as)
+
+  Everything else — version, capabilities, visual assets, EntryPoint — is
+  already correct for a first submission.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity
+      Name="__PARTNER_CENTER_IDENTITY_NAME__"
+      Publisher="__PARTNER_CENTER_PUBLISHER_ID__"
+      Version="0.1.2.0"
+      ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Note Aerator</DisplayName>
+    <PublisherDisplayName>__PARTNER_CENTER_PUBLISHER_DISPLAY_NAME__</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.scale-100.png</Logo>
+    <Description>An AI-first Markdown viewer for personal knowledge work. Read, search, and lightly comment on your notes — designed to pair with Copilot CLI for the heavy authoring.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App" Executable="Noteaerator.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+          DisplayName="Note Aerator"
+          Description="An AI-first Markdown viewer for personal knowledge work."
+          BackgroundColor="#1e293b"
+          Square150x150Logo="Assets\Square150x150Logo.scale-100.png"
+          Square44x44Logo="Assets\Square44x44Logo.scale-100.png">
+        <uap:DefaultTile
+            ShortName="Note Aerator"
+            Wide310x150Logo="Assets\Wide310x150Logo.scale-100.png"
+            Square71x71Logo="Assets\Square71x71Logo.scale-100.png"
+            Square310x310Logo="Assets\Square310x310Logo.scale-100.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+            <uap:ShowOn Tile="square310x310Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Assets\SplashScreen.scale-100.png" BackgroundColor="#1e293b" />
+        <uap:LockScreen BadgeLogo="Assets\LockScreenLogo.scale-200.png" Notification="badge" />
+      </uap:VisualElements>
+      <Extensions>
+        <!-- File association for *.md so Note Aerator can be set as the
+             default reader for Markdown files from the Open with dialog. -->
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="markdown">
+            <uap:DisplayName>Markdown file</uap:DisplayName>
+            <uap:Logo>Assets\Square44x44Logo.scale-100.png</uap:Logo>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.md</uap:FileType>
+              <uap:FileType>.markdown</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- runFullTrust is required for any Win32 / WPF / .NET app shipped
+         as MSIX (we are NOT a UWP / WinUI app). It is a restricted
+         capability, automatically allowed for desktop bridge apps. -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+</Package>
+
+

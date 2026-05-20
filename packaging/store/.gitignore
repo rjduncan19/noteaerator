@@ -1,0 +1,5 @@
+# Build artifacts from build-msix.ps1
+.tools/
+.stage/
+.bundlestage/
+dist/

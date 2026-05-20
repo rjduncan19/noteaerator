@@ -1,0 +1,12 @@
+Minimum hardware:
+- 64-bit (x64) processor
+- 4 GB RAM
+- 250 MB free disk space
+
+Minimum operating system:
+- Windows 10, version 1809 (build 17763) or later
+- Windows 11 (all versions)
+
+Required runtime:
+- Microsoft Edge WebView2 Runtime (pre-installed on Windows 11 and on
+  current Windows 10. If missing, Note Aerator prompts to download it.)
