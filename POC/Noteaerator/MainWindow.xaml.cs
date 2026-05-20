@@ -390,30 +390,80 @@ internal sealed class ProjectTab : IDisposable
 
         _ = InitWebViewAsync();
 
-        // Watchers — recursive so we catch the archive subdir too.
-        _mdWatcher = new FileSystemWatcher(folderPath, "*.md")
+        // Watchers — non-recursive on the project root (only top-level *.md
+        // matters) and on the archive subdir if it exists. Recursive watching
+        // of a OneDrive folder fires events for every descendant change and
+        // routinely overflows the watcher's 8 KB default buffer, after which
+        // events for legitimately-relevant files (a new top-level .md) are
+        // silently dropped. Buffer is also raised to 64 KB and we handle the
+        // Error event by re-creating the watcher and re-enumerating.
+        _mdWatcher = CreateMdWatcher();
+        _commentsWatcher = CreateCommentsWatcher();
+        if (Directory.Exists(ArchiveDir))
         {
-            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
-            IncludeSubdirectories = true,
-            EnableRaisingEvents = true
-        };
-        _mdWatcher.Changed += OnMdChanged;
-        _mdWatcher.Created += OnMdChanged;
-        _mdWatcher.Deleted += OnMdChanged;
-        _mdWatcher.Renamed += OnMdRenamed;
-
-        _commentsWatcher = new FileSystemWatcher(folderPath, "*-comments.json")
-        {
-            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
-            IncludeSubdirectories = true,
-            EnableRaisingEvents = true
-        };
-        _commentsWatcher.Changed += OnSidecarChanged;
-        _commentsWatcher.Created += OnSidecarChanged;
-        _commentsWatcher.Deleted += OnSidecarChanged;
-        _commentsWatcher.Renamed += (_, e) => OnSidecarChanged(this, e);
+            _archiveMdWatcher = CreateMdWatcherFor(ArchiveDir);
+            _archiveCommentsWatcher = CreateCommentsWatcherFor(ArchiveDir);
+        }
 
         PopulateFiles();
+    }
+
+    private FileSystemWatcher? _archiveMdWatcher;
+    private FileSystemWatcher? _archiveCommentsWatcher;
+
+    private FileSystemWatcher CreateMdWatcher() => CreateMdWatcherFor(FolderPath);
+    private FileSystemWatcher CreateCommentsWatcher() => CreateCommentsWatcherFor(FolderPath);
+
+    private FileSystemWatcher CreateMdWatcherFor(string dir)
+    {
+        var w = new FileSystemWatcher(dir, "*.md")
+        {
+            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
+            IncludeSubdirectories = false,
+            InternalBufferSize = 64 * 1024,
+            EnableRaisingEvents = true
+        };
+        w.Changed += OnMdChanged;
+        w.Created += OnMdChanged;
+        w.Deleted += OnMdChanged;
+        w.Renamed += OnMdRenamed;
+        w.Error += OnWatcherError;
+        return w;
+    }
+
+    private FileSystemWatcher CreateCommentsWatcherFor(string dir)
+    {
+        var w = new FileSystemWatcher(dir, "*-comments.json")
+        {
+            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
+            IncludeSubdirectories = false,
+            InternalBufferSize = 64 * 1024,
+            EnableRaisingEvents = true
+        };
+        w.Changed += OnSidecarChanged;
+        w.Created += OnSidecarChanged;
+        w.Deleted += OnSidecarChanged;
+        w.Renamed += (_, e) => OnSidecarChanged(this, e);
+        w.Error += OnWatcherError;
+        return w;
+    }
+
+    // If the watcher buffer overflows (common on OneDrive folders with bursty
+    // sync activity), Windows drops events. Re-enumerate so we don't miss a
+    // new top-level .md, and ensure the watcher is still raising events.
+    private void OnWatcherError(object sender, ErrorEventArgs e)
+    {
+        _ui.Post(_ =>
+        {
+            try
+            {
+                if (sender is FileSystemWatcher w && !w.EnableRaisingEvents)
+                    w.EnableRaisingEvents = true;
+            }
+            catch { /* best-effort */ }
+            PopulateFiles();
+            _ = LoadCurrentAsync();
+        }, null);
     }
 
     private DataTemplate BuildFileItemTemplate()
@@ -536,6 +586,19 @@ internal sealed class ProjectTab : IDisposable
         var archived = Directory.Exists(ArchiveDir)
             ? SafeEnum(ArchiveDir).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList()
             : new List<string>();
+
+        // Spin up the archive watchers lazily once the archive dir exists,
+        // so newly-archived files keep getting picked up without a recursive
+        // watcher on the project root.
+        if (Directory.Exists(ArchiveDir) && _archiveMdWatcher == null)
+        {
+            try
+            {
+                _archiveMdWatcher = CreateMdWatcherFor(ArchiveDir);
+                _archiveCommentsWatcher = CreateCommentsWatcherFor(ArchiveDir);
+            }
+            catch { /* best-effort */ }
+        }
 
         _suppressSelChange = true;
         try
@@ -965,6 +1028,8 @@ internal sealed class ProjectTab : IDisposable
     {
         try { _mdWatcher.EnableRaisingEvents = false; _mdWatcher.Dispose(); } catch { }
         try { _commentsWatcher.EnableRaisingEvents = false; _commentsWatcher.Dispose(); } catch { }
+        try { if (_archiveMdWatcher != null) { _archiveMdWatcher.EnableRaisingEvents = false; _archiveMdWatcher.Dispose(); } } catch { }
+        try { if (_archiveCommentsWatcher != null) { _archiveCommentsWatcher.EnableRaisingEvents = false; _archiveCommentsWatcher.Dispose(); } } catch { }
         try { _webView.Dispose(); } catch { }
     }
 }

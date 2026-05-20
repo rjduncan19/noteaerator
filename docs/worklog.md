@@ -7,6 +7,24 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-05-20 — Watcher reliability on OneDrive folders
+
+- **code**: new top-level `.md` files weren't appearing in projects rooted
+  in OneDrive (repro: `OneDrive - Microsoft\Career\Security` couldn't see a
+  freshly-added `41-vrp-comp-analysis.md`). Root cause: the per-project
+  `FileSystemWatcher` was `IncludeSubdirectories = true`, so OneDrive sync
+  activity under deep descendants generated enough events to overflow the
+  default 8 KB internal buffer, silently dropping the `Created` event for the
+  legitimately-relevant top-level file. Fixed by switching to two
+  non-recursive watchers (project root + archive subdir, the archive watcher
+  spun up lazily when `archive/` first appears), raising
+  `InternalBufferSize` to 64 KB, and wiring the `Error` event to
+  re-enumerate + re-enable the watcher. _artifacts_:
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **verify**: `dotnet build POC/Noteaerator.sln` → 0/0; `dotnet test` →
+  22/22 pass; new build launched (`bin\Debug\net8.0-windows\Noteaerator.exe`,
+  PID 7984).
+
 ## 2026-05-19 — Close out GitHub issues #1, #2, #3
 
 - **code**: issue #1 (preserve scroll on file sync) — viewer.html now tracks
