@@ -8,13 +8,15 @@
         Icon="app.ico"
         TextOptions.TextFormattingMode="Display"
         UseLayoutRounding="True">
+    <!--
+        Ctrl+F is intentionally NOT bound here. WebView2's built-in find bar
+        handles in-page search when the renderer has focus (issue #2). The
+        magnifier button in the header opens the cross-project search popup.
+    -->
     <Window.InputBindings>
-        <KeyBinding Key="F" Modifiers="Control" Command="{x:Static ApplicationCommands.Find}"/>
         <KeyBinding Key="Escape" Command="{x:Static ApplicationCommands.Close}"/>
     </Window.InputBindings>
     <Window.CommandBindings>
-        <CommandBinding Command="{x:Static ApplicationCommands.Find}"
-                        Executed="OnOpenSearchExecuted"/>
         <CommandBinding Command="{x:Static ApplicationCommands.Close}"
                         Executed="OnCloseSearchExecuted"
                         CanExecute="OnCloseSearchCanExecute"/>

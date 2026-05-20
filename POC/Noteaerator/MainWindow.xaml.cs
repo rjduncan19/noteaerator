@@ -110,7 +110,6 @@ public partial class MainWindow : Window
         ProjectsTabs.SelectedItem is TabItem ti && ti.Tag is ProjectTab pt ? pt : null;
 
     private void OnSearchButtonClick(object sender, RoutedEventArgs e) => OpenSearch();
-    private void OnOpenSearchExecuted(object sender, ExecutedRoutedEventArgs e) => OpenSearch();
     private void OnCloseSearchClick(object sender, RoutedEventArgs e) => CloseSearch();
 
     private void OnCloseSearchExecuted(object sender, ExecutedRoutedEventArgs e) => CloseSearch();
@@ -302,6 +301,14 @@ internal sealed class ProjectTab : IDisposable
     private bool _suppressSelChange;
 
     private DateTime _suppressSidecarUntil = DateTime.MinValue;
+
+    // FileSystemWatcher fires multiple events per single save (especially when
+    // OneDrive or another editor rewrites the file). Coalesce them so we only
+    // re-render once per quiescent period — multiple back-to-back renders can
+    // race scroll preservation and visually jump (issue #1).
+    private System.Windows.Threading.DispatcherTimer? _mdEventDebounce;
+    private readonly HashSet<string> _pendingMdChanges =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public ProjectTab(string folderPath, Action<string, string?> setStatus)
     {
@@ -853,8 +860,22 @@ internal sealed class ProjectTab : IDisposable
         // Pass the current file path so the renderer can preserve scroll for
         // same-file re-renders and reset to top when the user switches files.
         var pathLit = JsonSerializer.Serialize(_currentFile ?? "");
+        // Pass the directory of the current file as a file:// base URI so the
+        // renderer can resolve relative image references (e.g. ![](foo.svg)).
+        var baseUri = "";
+        if (!string.IsNullOrEmpty(_currentFile))
+        {
+            var dir = Path.GetDirectoryName(_currentFile);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                var withSep = dir.EndsWith(Path.DirectorySeparatorChar)
+                    ? dir : dir + Path.DirectorySeparatorChar;
+                try { baseUri = new Uri(withSep).AbsoluteUri; } catch { }
+            }
+        }
+        var baseLit = JsonSerializer.Serialize(baseUri);
         var script =
-            $"window.renderMarkdown && window.renderMarkdown({mdLit}, JSON.parse({cmtLit}), {pathLit});";
+            $"window.renderMarkdown && window.renderMarkdown({mdLit}, JSON.parse({cmtLit}), {pathLit}, {baseLit});";
         try { await _webView.CoreWebView2.ExecuteScriptAsync(script); }
         catch (Exception ex) { _setStatus($"Render failed: {ex.Message}", null); return; }
 
@@ -901,9 +922,28 @@ internal sealed class ProjectTab : IDisposable
         if (!IsRelevantPath(changedPath)) return;
         _ui.Post(_ =>
         {
-            PopulateFiles();
-            if (_currentFile != null && Eq(_currentFile, changedPath))
-                _ = LoadCurrentAsync();
+            _pendingMdChanges.Add(changedPath);
+            if (_mdEventDebounce == null)
+            {
+                _mdEventDebounce = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(180)
+                };
+                _mdEventDebounce.Tick += (_, _) =>
+                {
+                    _mdEventDebounce!.Stop();
+                    var batch = _pendingMdChanges.ToArray();
+                    _pendingMdChanges.Clear();
+                    PopulateFiles();
+                    if (_currentFile != null &&
+                        batch.Any(p => Eq(p, _currentFile)))
+                    {
+                        _ = LoadCurrentAsync();
+                    }
+                };
+            }
+            _mdEventDebounce.Stop();
+            _mdEventDebounce.Start();
         }, null);
     }
 

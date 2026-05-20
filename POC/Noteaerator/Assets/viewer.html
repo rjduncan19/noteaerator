@@ -692,8 +692,37 @@
       // -------------------- Main render entry point --------------------
 
       let _lastFilePath = null;
+      // Persistently tracks the user's last *intentional* scroll position.
+      // Captured outside renderMarkdown so it isn't clobbered by the
+      // transient scrollY=0 that follows an innerHTML mutation when a file
+      // syncs in (issue #1). We suppress recording during programmatic
+      // scrolls performed by the renderer itself.
+      let _lastUserScrollY = 0;
+      let _suppressScrollRecord = 0;
+      window.addEventListener('scroll', () => {
+        if (_suppressScrollRecord > 0) return;
+        _lastUserScrollY = window.scrollY;
+      }, { passive: true });
 
-      window.renderMarkdown = async function (markdownText, commentFile, filePath) {
+      // Rewrite relative URLs on <img> elements to absolute file:// URLs so
+      // images authored relative to the .md file (e.g. ![](foo.svg)) actually
+      // resolve, instead of being looked up next to viewer.html (issue #3).
+      function rewriteRelativeImageUrls(root, baseUri) {
+        if (!baseUri) return;
+        const imgs = root.querySelectorAll('img[src]');
+        for (const img of imgs) {
+          const s = img.getAttribute('src');
+          if (!s) continue;
+          // Skip already-absolute URLs (scheme: prefix), protocol-relative,
+          // data:, blob:, and pure fragment references.
+          if (/^[a-z][a-z0-9+.\-]*:/i.test(s)) continue;
+          if (s.startsWith('//') || s.startsWith('#')) continue;
+          try { img.setAttribute('src', new URL(s, baseUri).href); }
+          catch (_) { /* leave as-is */ }
+        }
+      }
+
+      window.renderMarkdown = async function (markdownText, commentFile, filePath, baseUri) {
         const root = document.getElementById('content');
         _root = root;
         _comments = (commentFile && Array.isArray(commentFile.comments)) ? commentFile.comments : [];
@@ -703,13 +732,19 @@
         // - Different file (user switched / search-jumped to another note)      -> scroll to top
         const incomingPath = (typeof filePath === 'string') ? filePath : null;
         const isFileChange = incomingPath !== _lastFilePath;
-        const prevScrollY  = window.scrollY;
+        // Use the persistently-tracked user scroll, not the live scrollY,
+        // because overlapping renderMarkdown calls can briefly observe a
+        // scrollY of 0 caused by the previous render's innerHTML mutation.
+        const prevScrollY = _lastUserScrollY;
         _lastFilePath = incomingPath;
+        if (isFileChange) _lastUserScrollY = 0;
 
         try {
           // Render the base content (no overlay yet).
           const rendered = transformAiComments(md.render(markdownText || ''));
           root.innerHTML = rendered || '<p class="empty">(empty file)</p>';
+
+          rewriteRelativeImageUrls(root, baseUri);
 
           annotateAnchors(root);
 
@@ -740,11 +775,24 @@
           // Restore (or reset) scroll AFTER mermaid + final overlay layout.
           // Clamp the previous Y to the new document height in case content
           // shrank (e.g. a comment was deleted and the page is shorter now).
-          if (isFileChange) {
-            window.scrollTo(0, 0);
-          } else {
-            const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-            window.scrollTo(0, Math.min(prevScrollY, maxY));
+          // Suppress the scroll listener while we move programmatically so
+          // we don't overwrite _lastUserScrollY with the synthesized value.
+          _suppressScrollRecord++;
+          try {
+            if (isFileChange) {
+              window.scrollTo(0, 0);
+            } else {
+              const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+              const targetY = Math.min(prevScrollY, maxY);
+              window.scrollTo(0, targetY);
+              _lastUserScrollY = targetY;
+            }
+          } finally {
+            // Release on the next frame so the scroll event that our
+            // scrollTo just queued has fired and been ignored.
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => { _suppressScrollRecord--; });
+            });
           }
         } catch (e) {
           root.innerHTML = '<div class="render-error">render error: ' +

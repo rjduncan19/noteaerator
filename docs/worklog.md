@@ -7,6 +7,34 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-05-19 — Close out GitHub issues #1, #2, #3
+
+- **code**: issue #1 (preserve scroll on file sync) — viewer.html now tracks
+  the user's last intentional scroll position via a `scroll` listener
+  (`_lastUserScrollY`), suppressed during programmatic scrolls. `renderMarkdown`
+  restores from that value instead of the live `window.scrollY`, so the
+  transient `scrollY=0` that follows an `innerHTML` mutation when two renders
+  overlap can't clobber the restore. Also debounced `FileSystemWatcher` md
+  events on the C# side (180 ms `DispatcherTimer` + per-tab pending set) so
+  one save no longer fires multiple back-to-back renders. _artifacts_:
+  `POC/Noteaerator/Assets/viewer.html`, `POC/Noteaerator/MainWindow.xaml.cs`
+- **code**: issue #2 (Ctrl+F not awesome) — removed the WPF Ctrl+F
+  `KeyBinding` and `ApplicationCommands.Find` `CommandBinding` (and the
+  `OnOpenSearchExecuted` handler). With `AreBrowserAcceleratorKeysEnabled`
+  defaulting to true, Ctrl+F in the WebView2 now opens Edge's native find
+  bar against the current rendered file. The magnifier button in the
+  header still opens the cross-project search popup. _artifacts_:
+  `POC/Noteaerator/MainWindow.xaml`, `POC/Noteaerator/MainWindow.xaml.cs`
+- **code**: issue #3 (SVG images don't render) — `PushAsync` now also
+  passes a `baseUri` (the parent directory of the current `.md`, as a
+  `file://` URL) to `window.renderMarkdown`. New JS helper
+  `rewriteRelativeImageUrls` walks `img[src]` and resolves non-scheme
+  references against `baseUri`, so `![](automated-convergence.svg)` loads
+  from the markdown file's folder instead of `Assets/`. _artifacts_:
+  `POC/Noteaerator/MainWindow.xaml.cs`, `POC/Noteaerator/Assets/viewer.html`
+- **verify**: `dotnet build POC/Noteaerator.sln` → 0 warnings, 0 errors;
+  `dotnet test POC/Noteaerator.Tests` → 22/22 pass.
+
 ## 2026-05-02 — Project bootstrap
 
 - **decision**: chose Option 1 (C# WPF + WebView2 + markdown-it +
