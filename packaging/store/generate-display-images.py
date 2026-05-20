@@ -145,9 +145,8 @@ def main() -> None:
         # Box art 1:1
         ("BoxArt-1080x1080.png", lambda: compose_hero(1080, 1080, square=True)),
         ("BoxArt-2160x2160.png", lambda: compose_hero(2160, 2160, square=True)),
-        # Poster art 9:16
-        ("PosterArt-720x1280.png", lambda: compose_hero(720, 1280, square=False)),
-        ("PosterArt-1080x1920.png", lambda: compose_hero(1080, 1920, square=False)),
+        # Poster art 2:3
+        ("PosterArt-1440x2160.png", lambda: compose_hero(1440, 2160, square=False)),
         # App tile 1:1
         ("AppTile-300x300.png", lambda: compose_tile(300)),
         ("AppTile-1080x1080.png", lambda: compose_tile(1080)),
