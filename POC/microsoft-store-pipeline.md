@@ -44,12 +44,27 @@ your Partner Center account.
 > Submission API cannot use a tenantless app, and Microsoft no longer
 > lets you create new ones. Fix it once, up front:
 >
-> 1. Sign up for a free Entra tenant via one of these (either works):
->    - **Microsoft 365 Developer Program** (recommended, fastest, no
->      credit card): <https://developer.microsoft.com/microsoft-365/dev-program>
->    - **Free Azure account** (includes a free Entra tenant; requires a
->      credit card for identity verification but does not charge for
->      anything in this guide): <https://azure.microsoft.com/free/>
+> 1. Sign up for a free Entra tenant. There are two free paths, but
+>    they have very different durability — pick the right one for your
+>    use case:
+>    - ✅ **Free Azure account** (recommended for a release pipeline):
+>      <https://azure.microsoft.com/free/>. The Entra tenant you get
+>      has no inactivity timer and persists indefinitely as long as the
+>      account exists. The "free" branding mostly refers to the Azure
+>      *subscription* (compute, storage, etc.) — we don't create any
+>      Azure resources here, only Entra app registrations, which are
+>      free forever regardless of subscription state. A credit card is
+>      required for identity verification but will not be charged for
+>      anything in this guide.
+>    - ⚠️ **Microsoft 365 Developer Program**:
+>      <https://developer.microsoft.com/microsoft-365/dev-program>.
+>      Faster signup (no credit card) but tenants are now
+>      **auto-deleted after ~90 days without "qualifying" M365
+>      development activity** (rule tightened late 2023). A CI service
+>      principal calling Partner Center on tag push does *not* count
+>      as qualifying activity, so the tenant can be purged out from
+>      under an active release pipeline. Fine for a one-off
+>      experiment, risky for a long-lived publish workflow.
 > 2. Sign in to Entra **as a user inside that new tenant** (e.g.
 >    `you@yourtenant.onmicrosoft.com`) at <https://entra.microsoft.com>.
 >    All the steps below assume you are signed in to that tenant, not
