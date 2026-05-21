@@ -35,6 +35,32 @@ The Submission API authenticates with an **Azure AD service principal**
 (now branded **Microsoft Entra ID**) that has been granted access to
 your Partner Center account.
 
+> ⚠️ **Prerequisite: you need an actual Entra tenant first.** If you
+> signed up for Partner Center with a personal Microsoft account
+> (e.g. `*@hotmail.com`, `*@outlook.com`) you do **not** have a tenant
+> by default. The Entra portal will show your account as "associated
+> with `name@hotmail.com` but not contained within any directory" and
+> any app you register that way is tenantless — Partner Center's
+> Submission API cannot use a tenantless app, and Microsoft no longer
+> lets you create new ones. Fix it once, up front:
+>
+> 1. Sign up for a free Entra tenant via one of these (either works):
+>    - **Microsoft 365 Developer Program** (recommended, fastest, no
+>      credit card): <https://developer.microsoft.com/microsoft-365/dev-program>
+>    - **Free Azure account** (includes a free Entra tenant; requires a
+>      credit card for identity verification but does not charge for
+>      anything in this guide): <https://azure.microsoft.com/free/>
+> 2. Sign in to Entra **as a user inside that new tenant** (e.g.
+>    `you@yourtenant.onmicrosoft.com`) at <https://entra.microsoft.com>.
+>    All the steps below assume you are signed in to that tenant, not
+>    your personal MSA.
+> 3. Associate the new tenant with Partner Center at
+>    <https://partner.microsoft.com/dashboard/account/v3/tenants/associated>
+>    → **Associate Azure AD**.
+>
+> Skip this and step 1.3 (adding the app in Partner Center) will not be
+> able to find the app you register.
+
 1. Go to the Entra **App registrations** blade:
    <https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade>
    (or via the Azure portal: <https://portal.azure.com> → search
@@ -42,7 +68,9 @@ your Partner Center account.
    something like `noteaerator-store-publisher`. Single tenant. No
    redirect URI needed. After it's created, copy from the Overview
    page:
-   - **Directory (tenant) ID**
+   - **Directory (tenant) ID** (this should now be populated — if it
+     shows "N/A" you are still signed in as the tenantless MSA; go
+     back and do the prerequisite above)
    - **Application (client) ID**
 2. In the new app's left nav: **Certificates & secrets → Client
    secrets → + New client secret**
@@ -56,11 +84,14 @@ your Partner Center account.
    Click **Add Azure AD applications**.
 4. Pick the AAD application you just created. Assign it the role
    **Manager** (the Submission API requires it).
-5. Confirm your tenant is associated under Partner Center → Account
+5. (One-time, only if you skipped the prerequisite above.) Confirm
+   your tenant is associated under Partner Center → Account
    settings → Tenants:
    <https://partner.microsoft.com/dashboard/account/v3/tenants/associated>
-   If it isn't, click **Associate Azure AD** and follow the prompt
-   (uses your Microsoft account that owns the Partner Center seat).
+   If it isn't, click **Associate Azure AD** and follow the prompt.
+
+If you previously created a tenantless "NA" app under your personal
+MSA, you can safely delete it now — it isn't usable for the API.
 
 You now have three secrets:
 
