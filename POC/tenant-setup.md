@@ -178,12 +178,32 @@ Even though you signed up for Partner Center with the same MSA that
 owns the Entra tenant, Partner Center does not automatically know
 about the tenant. You have to tell it.
 
-1. Open <https://partner.microsoft.com/dashboard/account/v3/tenants/associated>.
-2. If "Default Directory" (`57b4bc41-…`) does **not** appear, click
-   **Associate Azure AD** and follow the prompt. You'll be asked to
-   sign in once with a global admin of that tenant — that's your MSA.
-3. After it appears in the list, Partner Center can see users and
-   apps from this tenant.
+> ⚠️ **The top-right user-tile "directory switcher" in Partner
+> Center is NOT how you associate a tenant.** That switcher is just a
+> view-context selector — it changes *what* Partner Center shows you,
+> not what your publisher account is enrolled with. If you flip the
+> tile to "Default Directory", your apps will appear to vanish
+> (because Note Aerator lives under your MSA's original publisher
+> context, not under the empty new tenant). Switch back to the
+> entry labeled with your MSA / Microsoft account to see your apps
+> again. The actual association is a separate action on the Account
+> settings page below.
+
+### The correct path
+
+1. While Partner Center is showing your **original** (MSA) directory
+   context, click the gear icon in the top-right → **Account
+   settings**.
+2. In the Account settings left nav, click **Tenants** (sometimes
+   nested under **Organization profile**). The deep link
+   `https://partner.microsoft.com/dashboard/account/v3/tenants/associated`
+   is no longer reliable — the gear-icon path is the supported one.
+3. Click **Associate Azure AD**. Sign in with a Global Admin of the
+   Default Directory tenant — your MSA works, and so does the native
+   `rick@<…>.onmicrosoft.com` user from Step 2 if you've created it.
+4. After it succeeds, "Default Directory" (with tenant ID
+   `57b4bc41-…`) appears in the Tenants list. From now on, Partner
+   Center can enumerate users and apps from that tenant.
 
 You only do this once per tenant.
 
