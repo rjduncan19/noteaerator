@@ -35,46 +35,14 @@ The Submission API authenticates with an **Azure AD service principal**
 (now branded **Microsoft Entra ID**) that has been granted access to
 your Partner Center account.
 
-> ⚠️ **Prerequisite: you need an actual Entra tenant first.** If you
-> signed up for Partner Center with a personal Microsoft account
-> (e.g. `*@hotmail.com`, `*@outlook.com`) you do **not** have a tenant
-> by default. The Entra portal will show your account as "associated
-> with `name@hotmail.com` but not contained within any directory" and
-> any app you register that way is tenantless — Partner Center's
-> Submission API cannot use a tenantless app, and Microsoft no longer
-> lets you create new ones. Fix it once, up front:
->
-> 1. Sign up for a free Entra tenant. There are two free paths, but
->    they have very different durability — pick the right one for your
->    use case:
->    - ✅ **Free Azure account** (recommended for a release pipeline):
->      <https://azure.microsoft.com/free/>. The Entra tenant you get
->      has no inactivity timer and persists indefinitely as long as the
->      account exists. The "free" branding mostly refers to the Azure
->      *subscription* (compute, storage, etc.) — we don't create any
->      Azure resources here, only Entra app registrations, which are
->      free forever regardless of subscription state. A credit card is
->      required for identity verification but will not be charged for
->      anything in this guide.
->    - ⚠️ **Microsoft 365 Developer Program**:
->      <https://developer.microsoft.com/microsoft-365/dev-program>.
->      Faster signup (no credit card) but tenants are now
->      **auto-deleted after ~90 days without "qualifying" M365
->      development activity** (rule tightened late 2023). A CI service
->      principal calling Partner Center on tag push does *not* count
->      as qualifying activity, so the tenant can be purged out from
->      under an active release pipeline. Fine for a one-off
->      experiment, risky for a long-lived publish workflow.
-> 2. Sign in to Entra **as a user inside that new tenant** (e.g.
->    `you@yourtenant.onmicrosoft.com`) at <https://entra.microsoft.com>.
->    All the steps below assume you are signed in to that tenant, not
->    your personal MSA.
-> 3. Associate the new tenant with Partner Center at
->    <https://partner.microsoft.com/dashboard/account/v3/tenants/associated>
->    → **Associate Azure AD**.
->
-> Skip this and step 1.3 (adding the app in Partner Center) will not be
-> able to find the app you register.
+> ⚠️ **Prerequisite: you need a real Entra tenant first.**
+> If you signed up for Partner Center with a personal Microsoft
+> account, you do not have one by default. The setup is a separate
+> one-time chore — see **[`tenant-setup.md`](./tenant-setup.md)**
+> for the MSA-vs-tenant mental model, the free-Azure-account signup,
+> MFA registration (including a workaround if Microsoft Authenticator
+> push doesn't work for you), and tenant-to-Partner-Center
+> association. Come back here once `tenant-setup.md` step 3 is done.
 
 1. Go to the Entra **App registrations** blade:
    <https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade>
