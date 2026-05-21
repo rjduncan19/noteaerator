@@ -10,8 +10,12 @@ you push a `v*` tag.
 
 > **You have to ship the very first version of the app through the
 > Partner Center UI before any of this automation can work.** ✅ This
-> has already been done for Note Aerator (product ID `9N5DTC0FZP7M`,
-> v0.1.2, May 2026).
+> has already been done for Note Aerator:
+>
+> - **Live Store listing:** <https://apps.microsoft.com/detail/9N5DTC0FZP7M>
+> - **Windows deep link:** `ms-windows-store://pdp/?productid=9N5DTC0FZP7M`
+> - **Product ID:** `9N5DTC0FZP7M`
+> - **First version published:** `v0.1.2` (May 2026)
 
 The Store Submission API can only create *follow-up* submissions for a
 product that already exists. The first-ever submission must be done
