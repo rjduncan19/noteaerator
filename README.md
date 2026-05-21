@@ -1,5 +1,7 @@
 # noteaerator
 
+[![Get it from Microsoft](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9N5DTC0FZP7M)
+
 A workspace for letting ideas, tasks, and project state breathe through
 human-guided AI refinement.
 
@@ -13,10 +15,13 @@ those artifacts in tools optimized for reading.
 
 > **Status: Pre-MVP — early POC, planning & architecture phase.**
 > A working Markdown-viewer POC ships under `POC/` with prebuilt
-> Windows binaries, but the broader vision (AI-first authoring loop,
-> WYSIWYG editing, sync conventions, semantic search) is not yet built.
-> Code, docs, and decisions are evolving in the open. Feedback welcome;
-> production use is not. See the full [Status](#status) section below.
+> Windows binaries and is also live on the
+> [Microsoft Store](ms-windows-store://pdp/?productid=9N5DTC0FZP7M)
+> ([web link](https://apps.microsoft.com/detail/9N5DTC0FZP7M)), but the
+> broader vision (AI-first authoring loop, WYSIWYG editing, sync
+> conventions, semantic search) is not yet built. Code, docs, and
+> decisions are evolving in the open. Feedback welcome; production use
+> is not. See the full [Status](#status) section below.
 
 ---
 

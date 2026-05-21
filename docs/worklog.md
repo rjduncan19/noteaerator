@@ -7,6 +7,21 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-05-21 — Note Aerator live on the Microsoft Store
+
+- **decision**: app published successfully under product ID
+  `9N5DTC0FZP7M`. Deep link
+  `ms-windows-store://pdp/?productid=9N5DTC0FZP7M`; web listing
+  `https://apps.microsoft.com/detail/9N5DTC0FZP7M`. Submission cleared
+  on the first try (no certification feedback needed). _artifacts_:
+  `README.md`
+- **doc**: added a "Get it from Microsoft" badge + Store deep link to
+  the README and updated the Status callout to mention the Store
+  availability. _artifacts_: `README.md`
+- **meta**: tagged the released build as `v0.1.2` so the published
+  package and the source tree stay in sync. The exact bundle on the
+  Store is the one built from commit `083f3c9` (see prior entry).
+
 ## 2026-05-20 — Microsoft Store submission package
 
 - **decision**: target the Store with an MSIX bundle built from a
@@ -57,8 +72,7 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 ## 2026-05-20 — Watcher reliability on OneDrive folders
 
 - **code**: new top-level `.md` files weren't appearing in projects rooted
-  in OneDrive (repro: `OneDrive - Microsoft\Career\Security` couldn't see a
-  freshly-added `41-vrp-comp-analysis.md`). Root cause: the per-project
+  in OneDrive. Root cause: the per-project
   `FileSystemWatcher` was `IncludeSubdirectories = true`, so OneDrive sync
   activity under deep descendants generated enough events to overflow the
   default 8 KB internal buffer, silently dropping the `Created` event for the
