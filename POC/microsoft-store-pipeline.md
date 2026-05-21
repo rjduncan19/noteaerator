@@ -35,14 +35,16 @@ The Submission API authenticates with an **Azure AD service principal**
 (now branded **Microsoft Entra ID**) that has been granted access to
 your Partner Center account.
 
-> ⚠️ **Prerequisite: you need a real Entra tenant first.**
-> If you signed up for Partner Center with a personal Microsoft
-> account, you do not have one by default. The setup is a separate
-> one-time chore — see **[`tenant-setup.md`](./tenant-setup.md)**
-> for the MSA-vs-tenant mental model, the free-Azure-account signup,
-> MFA registration (including a workaround if Microsoft Authenticator
-> push doesn't work for you), and tenant-to-Partner-Center
-> association. Come back here once `tenant-setup.md` step 3 is done.
+> ⚠️ **Prerequisite: you need a real Entra tenant first, with a
+> native admin user.** If you signed up for Partner Center with a
+> personal Microsoft account, you do not have either by default. The
+> setup is a separate one-time chore — see
+> **[`tenant-setup.md`](./tenant-setup.md)** for the MSA-vs-tenant
+> mental model, the free-Azure-account signup, creating a native
+> admin user (because your MSA can't register tenant MFA), MFA
+> registration (with a workaround for the iOS Authenticator push
+> issue), and tenant-to-Partner-Center association. Come back here
+> once `tenant-setup.md` step 4 is done.
 
 1. Go to the Entra **App registrations** blade:
    <https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade>

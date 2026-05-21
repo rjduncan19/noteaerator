@@ -71,9 +71,67 @@ service principals, and (eventually) MFA enrollment happen.
 
 ---
 
-## Step 2 — sort out MFA for the tenant
+## Step 2 — create a native tenant admin user (don't try to use your MSA)
 
-You're seeing this banner in the Azure portal:
+Here is a trap that catches everyone: your MSA *can* sign in to the
+Azure / Entra portal as the tenant owner, but it is **not a native
+tenant user** — it's an external identity that Entra recognizes
+because you signed up with it. That means:
+
+- You **cannot** register tenant MFA against your MSA at
+  <https://mysignins.microsoft.com/security-info> — that page is
+  for work/school accounts only and will reject your MSA with
+  *"You can't sign in here with a personal account."*
+- Tenant MFA enforcement (the Oct 1 2025 banner) will eventually be
+  awkward for you, because Entra has no MFA registration to enforce
+  *on* — the MSA's MFA lives at <https://account.live.com>, a
+  separate system.
+- Mixing one identity for Partner Center + Outlook + Xbox + tenant
+  admin is the root cause of the confusion you've been hitting.
+
+Fix it once, by creating a normal cloud-only user inside the tenant
+and giving it Global Admin. That user is the one you'll use for all
+tenant admin work from now on. Your MSA stays as the Partner Center
+owner and tenant-owner-of-last-resort.
+
+### How
+
+1. Signed in to <https://entra.microsoft.com> as your MSA, find the
+   tenant's `.onmicrosoft.com` domain at
+   <https://entra.microsoft.com/#view/Microsoft_AAD_IAM/CustomDomainNames>
+   — exactly one entry like `<something>.onmicrosoft.com`. Copy it.
+2. Open Users:
+   <https://entra.microsoft.com/#view/Microsoft_AAD_UsersAndTenants/UserManagementMenuBlade/~/AllUsers>
+3. Click **+ New user → Create new user** and fill in:
+   - **User principal name**: `rick` (left side) — domain dropdown
+     picks your `.onmicrosoft.com` domain. Final value e.g.
+     `rick@<something>.onmicrosoft.com`.
+   - **Display name**: `Rick Duncan`
+   - **Password**: auto-generate; copy it to your password manager.
+   - **Assignments → + Add role → Global Administrator**.
+4. Sign out of the portal. Open a fresh InPrivate window. Sign in to
+   <https://entra.microsoft.com> as
+   `rick@<something>.onmicrosoft.com` with the temporary password.
+5. You'll be forced to change the password, then prompted to register
+   security info. Pick **Microsoft Authenticator → Use verification
+   code** (i.e. TOTP — avoids the iOS push problem), scan the QR into
+   Microsoft Authenticator *or* any TOTP app (1Password, Bitwarden,
+   Authy — all work, the QR is a standard `otpauth://` URI). Enter
+   the code to confirm.
+6. Add a phone call as a backup method. Don't bother with SMS.
+
+You're now MFA-registered as a tenant-native admin, with no
+dependency on the flaky MSA push channel.
+
+Use this account from here on for anything inside the tenant:
+creating app registrations, assigning Entra roles, reading sign-in
+logs, etc. Keep using your MSA at <https://partner.microsoft.com>.
+
+---
+
+## Step 3 — sort out tenant MFA enforcement
+
+You may be seeing this banner in the Azure portal:
 
 > Multifactor authentication enforcement (phase 2) will begin on or
 > after October 1, 2025. MFA will be required for all users working
@@ -90,51 +148,31 @@ You're seeing this banner in the Azure portal:
   with `client_id` + `client_secret` (a non-interactive flow). **MFA
   enforcement does not apply to service principals**, so the pipeline
   won't break.
-- What *will* break (after Oct 1, 2025) is *you*, the human, signing
-  in to portal.azure.com / entra.microsoft.com to do admin work in
-  this tenant. You'll be required to register an MFA method against
-  the tenant.
+- After Step 2 above you already have MFA registered on your native
+  tenant admin user (`rick@<something>.onmicrosoft.com`). So
+  enforcement is effectively a no-op for you when it lands.
 
-### What to do
+### Method choices (reference)
 
-You don't have to act today, but doing it now is easier than waiting
-for an emergency. Register an MFA method against the tenant:
-
-1. With your MSA logged in to the tenant, open
-   <https://mysignins.microsoft.com/security-info>.
-2. Click **+ Add sign-in method**.
-
-### Which method to pick (given your iOS push problem)
-
-The Microsoft Authenticator "push approval" flow for *personal*
-Microsoft accounts is known to be flaky on iOS — notifications
-silently drop. The **same app for "work/school" accounts** (which is
-what your Entra tenant counts as) usually works fine, but if you want
-to skip the risk entirely, use one of the alternatives below.
+If you ever need to add or change methods, here's the menu:
 
 | Method                                                    | Reliability | Notes                                                                                                                                              |
 | --------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Authenticator app — push** (work/school account flow)   | Usually OK  | Add as a "work or school account" inside Authenticator. This is a **different** registration from your existing MSA one — they don't interfere.    |
-| **Authenticator app — TOTP** (6-digit rotating code) ⭐    | Very high   | Choose "Use verification code" instead of push. Same app, just type the code. Bypasses the iOS notification issue entirely.                        |
-| **Third-party TOTP app** (1Password, Bitwarden, Authy)    | Very high   | Same flow, you just don't have to use Microsoft Authenticator. Scan the QR code with whichever TOTP app you already trust.                         |
-| **Phone (SMS or voice call)**                             | OK          | Decent backup. Microsoft increasingly discourages SMS for primary MFA but it still works for a personal Azure tenant.                              |
-| **Passkey / FIDO2 security key**                          | Highest     | Best long-term, but requires a hardware key or platform passkey support. Overkill for a personal release pipeline; great if you already use them.  |
+| **Authenticator app — push** (work/school account flow)   | Usually OK  | Different from the MSA push that's flaky on your iPhone — work/school account push is a separate channel in the same app.                          |
+| **Authenticator app — TOTP** (6-digit rotating code) ⭐    | Very high   | Use "Use verification code" instead of push. Bypasses iOS notification issues entirely.                                                            |
+| **Third-party TOTP app** (1Password, Bitwarden, Authy)    | Very high   | Same flow, you just don't have to use Microsoft Authenticator. Scan the QR with whichever TOTP app you already trust.                              |
+| **Phone (SMS or voice call)**                             | OK          | Decent backup. Microsoft increasingly discourages SMS for primary MFA but it works fine for a personal Azure tenant.                               |
+| **Passkey / FIDO2 security key**                          | Highest     | Best long-term. Overkill for a personal release pipeline; great if you already use them.                                                           |
 
-**Recommended for you:** add **TOTP** (either inside Microsoft
-Authenticator with "Use verification code", or via 1Password /
-Bitwarden), and add **phone call** as a backup. This gives you two
-independent factors and avoids the broken iOS push channel entirely.
+### The "enforcement start date" widget
 
-### About the "enforcement start date" widget
-
-The portal lets you push the enforcement date back a bit using an
-"elevated access" workflow. **You can ignore this.** You're going to
-register MFA right now anyway, so the start date doesn't matter — you
-won't notice enforcement when it arrives.
+The portal lets you push enforcement back via an "elevated access"
+workflow. **You can ignore it.** You've registered MFA, so
+enforcement is invisible to you when it arrives.
 
 ---
 
-## Step 3 — associate the tenant with Partner Center
+## Step 4 — associate the tenant with Partner Center
 
 Even though you signed up for Partner Center with the same MSA that
 owns the Entra tenant, Partner Center does not automatically know
@@ -151,7 +189,7 @@ You only do this once per tenant.
 
 ---
 
-## Step 4 — register the publish app and grant it Partner Center access
+## Step 5 — register the publish app and grant it Partner Center access
 
 This is where the release pipeline's identity is created. The full
 details (with the exact field values and the Manager role
