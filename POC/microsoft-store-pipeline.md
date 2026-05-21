@@ -32,25 +32,35 @@ here.
 ## Step 1 — get API credentials for Partner Center
 
 The Submission API authenticates with an **Azure AD service principal**
-that has been granted access to your Partner Center account.
+(now branded **Microsoft Entra ID**) that has been granted access to
+your Partner Center account.
 
-1. In the Azure portal, **Azure Active Directory → App registrations →
-   New registration**. Name it something like
-   `noteaerator-store-publisher`. Single tenant. No redirect URI needed.
-   After it's created, note:
+1. Go to the Entra **App registrations** blade:
+   <https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade>
+   (or via the Azure portal: <https://portal.azure.com> → search
+   "App registrations"). Click **+ New registration**. Name it
+   something like `noteaerator-store-publisher`. Single tenant. No
+   redirect URI needed. After it's created, copy from the Overview
+   page:
    - **Directory (tenant) ID**
    - **Application (client) ID**
-2. Under the new app: **Certificates & secrets → New client secret**.
-   Pick a 24-month expiry. Copy the secret **value** (you only see it
-   once). This is your `client_secret`.
-3. Open **Partner Center → Account settings → User management →
-   Azure AD applications → Add Azure AD applications**.
+2. In the new app's left nav: **Certificates & secrets → Client
+   secrets → + New client secret**
+   (<https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials>
+   for the app you just created). Pick a 24-month expiry. Copy the
+   secret **value** (you only see it once). This is your
+   `client_secret`.
+3. Open Partner Center → Account settings → User management →
+   Azure AD applications:
+   <https://partner.microsoft.com/dashboard/account/v3/usermanagement#azureadapplications>
+   Click **Add Azure AD applications**.
 4. Pick the AAD application you just created. Assign it the role
    **Manager** (the Submission API requires it).
-5. Back in Partner Center, go to **Account settings → Tenants** and
-   confirm your AAD tenant is associated. If it isn't, click
-   **Associate Azure AD** and follow the prompt (uses your Microsoft
-   account that owns the Partner Center seat).
+5. Confirm your tenant is associated under Partner Center → Account
+   settings → Tenants:
+   <https://partner.microsoft.com/dashboard/account/v3/tenants/associated>
+   If it isn't, click **Associate Azure AD** and follow the prompt
+   (uses your Microsoft account that owns the Partner Center seat).
 
 You now have three secrets:
 
@@ -69,11 +79,13 @@ secret — it's already on the public Store listing):
 
 ## Step 2 — store the secrets in GitHub
 
-In the GitHub repo: **Settings → Secrets and variables → Actions →
-New repository secret**. Add three secrets with the names from the
-table above. Do *not* add `STORE_PRODUCT_ID` as a secret — set it as a
-repository **variable** (same page, **Variables** tab), or just inline
-it in the workflow YAML since it's public.
+In the GitHub repo, open
+<https://github.com/rjduncan19/noteaerator/settings/secrets/actions>
+and click **New repository secret**. Add three secrets with the names
+from the table above. Do *not* add `STORE_PRODUCT_ID` as a secret —
+set it as a repository **variable**
+(<https://github.com/rjduncan19/noteaerator/settings/variables/actions>),
+or just inline it in the workflow YAML since it's public.
 
 ---
 
@@ -214,8 +226,9 @@ jobs:
    step should end with something like
    `Submission 1152921504606851234 committed.`
 4. In Partner Center, the new submission will appear under
-   **Note Aerator → Submissions** with the status
-   **Certification → In progress**.
+   Note Aerator → Submissions
+   (<https://partner.microsoft.com/dashboard/products/9N5DTC0FZP7M/submissions>)
+   with the status **Certification → In progress**.
 
 Subsequent releases are just: bump version, tag, push.
 
