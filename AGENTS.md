@@ -193,6 +193,37 @@ If a comment cannot be addressed (e.g. you need clarification), leave
 that one entry in place and remove the others; the human will see the
 remaining one(s) on next refresh.
 
+## Long responses go in Markdown files, not the chat stream
+
+The user reads project docs *in Note Aerator itself*, not in the
+terminal. Anything more than a short answer or a quick status update
+should be written to a Markdown file (typically under `POC/`, `docs/`,
+or `packaging/`) and then referenced from the chat with the file path
+and a one-line summary.
+
+Specifically:
+
+- **Multi-option write-ups, design proposals, plans, walkthroughs,
+  rituals, comparisons, and any response that includes more than ~5
+  bullet points or a multi-row table** → write it to an `.md` file.
+  The chat should contain a one- or two-sentence pointer ("Options
+  are in `POC/<name>.md` — open the POC tab; my recommendation is
+  X.") and nothing more.
+- **Single self-contained Markdown file per task** wherever possible.
+  Don't litter a constellation of small `.md` + `.txt` snippets the
+  user has to assemble. Inline paste-ready content (e.g. release-note
+  text formatted for the destination field) directly in the same
+  file as the instructions, in a fenced code block.
+- **Reference local files with clickable links** Note Aerator can
+  surface (currently: relative repo paths; once file-link support
+  lands, `file:///` URLs to dist folders, generated assets, etc.).
+- **Short answers and status updates stay in the chat.** Don't create
+  a `.md` for "yes, that worked" or "I bumped the version, here's the
+  commit hash."
+
+If you find yourself about to send a long, structured response, stop
+and put it in a file instead.
+
 ## House rules for agents
 
 - Prefer editing existing files over creating new ones.
