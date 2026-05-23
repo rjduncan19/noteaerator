@@ -7,6 +7,56 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-05-23 — file:// link rendering + safe handling (Option A)
+
+- **decision**: per `POC/file-link-rendering-options.md`, chose Option
+  A (Reveal-in-Explorer for all file:// links). file:// is now allowed
+  through markdown-it's `validateLink`, but every click is routed
+  through `explorer.exe` — folders open, files highlight in their
+  parent folder. The file's own default-handler is NEVER invoked, so
+  no markdown link can accidentally run an .exe / .bat / .docm. Other
+  schemes (javascript:, vbscript:, non-image data:) remain blocked.
+  _artifacts_: `POC/file-link-rendering-options.md`
+- **code**: new pure `Noteaerator.Core.ExternalLink.Classify(uri)`
+  returns an `ExternalLinkPlan { Kind, Target, Arguments, LocalPath }`.
+  Kinds: `Default` (pass uri to ShellExecute), `FileFolder` (run
+  `explorer.exe "<path>"`), `FileItem` (run
+  `explorer.exe /select,"<path>"`), `FileRejected` (UNC, malformed,
+  empty). Folder vs file detection is injectable for testing.
+  _artifacts_: `POC/Noteaerator.Core/ExternalLink.cs`
+- **code**: rewired `MainWindow.LaunchExternal` to dispatch via
+  `ExternalLink.Classify` — non-file URLs keep the previous
+  ShellExecute path so http(s) / mailto / ms-windows-store /
+  vscode etc. work exactly as before. _artifacts_:
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **code**: overrode `md.validateLink` in `viewer.html` to allow
+  `file:` while still blocking javascript/vbscript/data — markdown-it
+  was silently dropping file:// links because they're on its built-in
+  unsafe-protocol list. _artifacts_:
+  `POC/Noteaerator/Assets/viewer.html`
+- **verify**: 59/59 tests pass (17 new in `ExternalLinkTests.cs`
+  covering non-file passthrough, file→explorer arg construction,
+  forward→backslash normalization, %20 decoding, UNC rejection,
+  malformed-input rejection, and the key safety theorem: any
+  file:// URL with a dangerous extension (.exe, .bat, .docm, .msi)
+  still routes through `explorer.exe /select,` and never through
+  ShellExecute on the file). Built clean, launched the dev build to
+  spot-check rendering. _artifacts_:
+  `POC/Noteaerator.Tests/ExternalLinkTests.cs`
+- **code**: rebuilt the v0.1.3 MSIX bundle to include the fix.
+  Bundle SHA256:
+  `C66235D605D2F4101755FC4DD824F69A504B0C4BA3C71D89D925882A725990C4`
+  (replaces the earlier
+  `390775C4D46C01A61C8333E2BCDA7B9735EBC9EE9C167C3125C62DF0B44DEBBE`).
+  Updated `packaging/store/UPDATE-v0.1.3.md` with the new hash + a
+  fourth bullet in the release notes, and mirrored the bullet into
+  `packaging/store/listing/whats-new.md`. The Step 1 file:// link
+  in UPDATE-v0.1.3.md will now actually be clickable in the new
+  build. _artifacts_:
+  `packaging/store/dist/NoteAerator-0.1.3.0.msixbundle`,
+  `packaging/store/UPDATE-v0.1.3.md`,
+  `packaging/store/listing/whats-new.md`
+
 ## 2026-05-23 — First-run experience
 
 - **decision**: when a brand-new install launches for the first time

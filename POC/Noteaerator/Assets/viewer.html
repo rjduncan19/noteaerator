@@ -301,6 +301,17 @@
           return '<pre><code class="hljs">' + escapeHtml(str) + '</code></pre>';
         }
       });
+      // Allow file:// links — the host (MainWindow.LaunchExternal) routes
+      // them through Explorer's Reveal-in-Folder rather than ShellExecute,
+      // so they can't accidentally run an executable. javascript:, vbscript:,
+      // and non-image data: URLs remain blocked.
+      md.validateLink = function (url) {
+        const BAD = /^(vbscript|javascript|data):/i;
+        const GOOD_DATA = /^data:image\/(gif|png|jpeg|webp);/i;
+        const s = String(url).trim();
+        if (!BAD.test(s)) return true;
+        return GOOD_DATA.test(s);
+      };
       if (window.markdownitTaskLists) md.use(window.markdownitTaskLists, { enabled: true });
 
       function escapeHtml(s) {

@@ -17,3 +17,8 @@ Release 0.1.3 — major feature update:
 
 - **Reliability fix.** The projects.json reader is now case-insensitive
   so existing installs are not affected by the schema bump.
+- **file:// links now clickable.** Markdown links to local files and
+  folders (e.g. [Open folder](file:///C:/path/to/folder)) are no longer
+  silently dropped by the renderer. Clicking one opens Explorer's
+  Reveal in Folder view — files are never auto-launched through their
+  default handler, so a .exe or .bat link can't run by accident.

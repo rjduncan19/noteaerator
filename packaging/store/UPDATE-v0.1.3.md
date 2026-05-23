@@ -24,12 +24,19 @@ Two big features and one reliability fix:
 - **Reliability fix.** The `projects.json` reader is now
   case-insensitive so existing installs are not affected by the
   schema bump.
+- **`file://` links now clickable.** Markdown links to local files
+  and folders (e.g. `[Open folder](file:///C:/path/to/folder)`) are
+  no longer silently dropped by the renderer. Clicking one opens
+  Explorer's **Reveal in Folder** view — files are never auto-launched
+  through their default handler, so a `.exe` or `.bat` link can't run
+  by accident.
 
 ---
 
 ## Step 1 — open the bundle's folder
 
-Click here to open the build output folder in File Explorer:
+Click the link below — it opens the build output folder in File
+Explorer:
 
 [📁 Open dist folder](file:///C:/Users/richardd/source-rjduncan19/noteaerator/packaging/store/dist)
 
@@ -41,7 +48,7 @@ You should see:
 | `NoteAerator-0.1.3.0-x64.msix`    | 68.8 MB | bundled — don't upload |
 
 SHA256 of the bundle (for your records):
-`390775C4D46C01A61C8333E2BCDA7B9735EBC9EE9C167C3125C62DF0B44DEBBE`
+`C66235D605D2F4101755FC4DD824F69A504B0C4BA3C71D89D925882A725990C4`
 
 ---
 
@@ -101,6 +108,13 @@ Release 0.1.3 — major feature update:
 
 - Reliability fix. The projects.json reader is now case-insensitive
   so existing installs are not affected by the schema bump.
+
+- file:// links now clickable. Markdown links to local files and
+  folders (e.g. "[Open folder](file:///C:/path/to/folder)") are no
+  longer silently dropped by the renderer. Clicking one opens
+  Explorer's Reveal in Folder view - files are never auto-launched
+  through their default handler, so a .exe or .bat link can't run
+  by accident.
 ```
 
 Click **Save** at the bottom of the Store listings page. *Do not skip

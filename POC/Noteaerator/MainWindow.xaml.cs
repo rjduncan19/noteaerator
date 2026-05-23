@@ -1055,13 +1055,38 @@ internal sealed class ProjectTab : IDisposable
     private void LaunchExternal(string uri)
     {
         if (string.IsNullOrEmpty(uri)) return;
+
+        // file:// URLs go through Explorer (Reveal-in-Folder), never through
+        // ShellExecute on the file itself. See ExternalLink.cs + Option A in
+        // POC/file-link-rendering-options.md.
+        var plan = ExternalLink.Classify(uri);
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            switch (plan.Kind)
             {
-                FileName = uri,
-                UseShellExecute = true
-            });
+                case ExternalLinkKind.FileFolder:
+                case ExternalLinkKind.FileItem:
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = plan.Target,         // explorer.exe
+                        Arguments = plan.Arguments!,    // "<path>" or "/select,<path>"
+                        UseShellExecute = false
+                    });
+                    return;
+
+                case ExternalLinkKind.FileRejected:
+                    _setStatus($"Refused to open {uri} (unsupported file URL)", uri);
+                    return;
+
+                case ExternalLinkKind.Default:
+                default:
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = plan.Target,
+                        UseShellExecute = true
+                    });
+                    return;
+            }
         }
         catch (Exception ex)
         {
