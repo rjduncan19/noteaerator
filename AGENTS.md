@@ -206,14 +206,22 @@ remaining one(s) on next refresh.
 
 When the user explicitly asks for **information to make a decision** (phrases
 like "give me options", "help me decide", "present me with choices", "weigh
-X vs Y", or any prompt whose primary purpose is comparison/recommendation),
-treat it as a hard stop:
+X vs Y", "what are good options", or any prompt whose primary purpose is
+comparison/recommendation), treat it as a hard stop:
 
 - Present the options with the requested trade-offs.
 - **Stop and wait for the user's choice.** Do not pick one and start
   executing in the same turn — even under autopilot, even if a recommendation
   is given. The point of the request was the decision, not the implementation.
 - A recommendation is fine and encouraged, but it is not consent.
+- After presenting options, **call `task_complete` with the summary**.
+  Returning a recommendation IS finishing the task; you are not "leaving
+  work undone" by stopping there. The autopilot "keep going" reminder does
+  NOT override this rule. Do not do *any* preparatory work toward the
+  recommended option ("just a small unrelated fix while I'm here", "tiny
+  workaround", scaffolding files, branch prep) — that is still acting on
+  the decision without consent.
+- If a subsequent turn delivers the user's choice, *then* implement it.
 - If `ask_user` returns "user not available", do **not** silently proceed on
   your recommendation. Either (a) call `task_complete` summarizing the
   options and noting that the user's choice is required to continue, or
@@ -223,3 +231,4 @@ treat it as a hard stop:
   option.
 - Never collapse a "help me decide" question into a one-second pick followed
   by code generation. That defeats the purpose of asking.
+
