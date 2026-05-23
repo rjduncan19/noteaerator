@@ -1,10 +1,19 @@
-First public release on the Microsoft Store.
+Release 0.1.3 — major feature update:
 
-Highlights of this build (0.1.2):
+- **Prefix grouping in the file list.** Files that share dash-separated
+  prefixes (e.g. `corp-orcl.md` and `corp-orcl-thomas.md`) now collapse
+  into an expandable tree in the sidebar. Right-click any project tab
+  to toggle **Group by prefix** on or off; the setting is saved per
+  project. Smart touches: leading numeric tokens like `30-` are sort
+  keys (not group keys), `<prefix>-overview.md` acts as the anchor for
+  `<prefix>`, and meaningless single-child wrappers are auto-collapsed.
 
-- Scroll position is now preserved when a file is edited and reloaded.
-- Ctrl+F opens the native find bar so you can search inside any rendered
-  note.
-- Relative image paths and SVG images now render correctly.
-- File-change watching has been hardened for OneDrive, Dropbox, and Google
-  Drive folders so new files reliably appear in the sidebar.
+- **Getting-started experience.** First-time users now land on a
+  welcoming three-document project at `Documents\Note Aerator\`
+  instead of an empty window. Walks through the 30-second tour,
+  search, archive, sidecar comments, AI directives, prefix grouping,
+  Mermaid, math, and task lists. The seeded project is yours — edit,
+  rename, or delete the files however you like.
+
+- **Reliability fix.** The projects.json reader is now case-insensitive
+  so existing installs are not affected by the schema bump.
