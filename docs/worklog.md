@@ -7,6 +7,45 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-05-23 — First-run experience
+
+- **decision**: when a brand-new install launches for the first time
+  (detected by the absence of `%APPDATA%\noteaerator\viewer\projects.json`),
+  drop a getting-started project at
+  `%USERPROFILE%\Documents\Note Aerator\` and add it to the project
+  list. Three bundled markdown files demonstrate Mermaid, math, task
+  lists, `<!-- @ai: -->` markers, and prefix grouping. Only ever fires
+  on a truly first run — if the user later removes the last project we
+  respect the empty list and don't re-seed. _artifacts_:
+  `POC/Noteaerator/Assets/FirstRun/*.md`,
+  `POC/Noteaerator.Core/FirstRunSeeder.cs`
+- **code**: added `Noteaerator.Core.FirstRunSeeder` with a testable
+  `Seed(sourceDir, destDir)` core that copies every `*.md` from source
+  to dest, never overwrites an existing file (so users can edit the
+  seeded content safely), and creates the destination dir if missing.
+  Wired into `MainWindow.LoadProjects` via the file-missing check.
+  _artifacts_: `POC/Noteaerator.Core/FirstRunSeeder.cs`,
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **code**: fixed a case-sensitivity bug in `ProjectConfig` parsing
+  uncovered while end-to-end testing the seeder. The default
+  `JsonSerializer.Serialize` writes PascalCase (`"Path"`,
+  `"GroupByPrefix"`) but my loader only looked for camelCase. Now the
+  loader accepts either and the writer is pinned to camelCase
+  explicitly via `JsonNamingPolicy.CamelCase`. _artifacts_:
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **verify**: 42/42 tests pass (5 new in `FirstRunSeederTests.cs`
+  covering copy, no-overwrite, dest-dir creation, missing source,
+  and idempotency across repeated calls). End-to-end smoke test on
+  this machine: deleted `projects.json` + the docs subfolder,
+  launched → seeder created the docs folder with all 3 files and
+  wrote a single-entry `projects.json` (camelCase keys); second
+  launch loaded the existing config without re-seeding; original
+  config restored after the test. Documents folder was OneDrive-
+  redirected (`C:\Users\richardd\OneDrive - Microsoft\Documents`)
+  and `Environment.SpecialFolder.MyDocuments` handled that
+  transparently. _artifacts_:
+  `POC/Noteaerator.Tests/FirstRunSeederTests.cs`
+
 ## 2026-05-23 — File-list prefix grouping
 
 - **decision**: implemented Proposal A from

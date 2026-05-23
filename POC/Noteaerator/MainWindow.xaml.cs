@@ -51,7 +51,20 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (File.Exists(_configPath))
+            if (!File.Exists(_configPath))
+            {
+                // First run ever — drop a getting-started project so a brand-
+                // new install isn't an empty window. Only triggers when the
+                // config file is fully absent; if the user later removes the
+                // last project we keep the empty list and don't re-seed.
+                var seeded = FirstRunSeeder.TrySeed();
+                if (seeded != null)
+                {
+                    AddProject(seeded, groupByPrefix: true);
+                    SaveProjects();
+                }
+            }
+            else
             {
                 foreach (var cfg in ParseProjectConfigs(File.ReadAllText(_configPath)))
                 {
@@ -71,7 +84,9 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Accept both legacy (string[]) and new (object[]) shapes so existing
-    /// projects.json files keep loading after the schema bump.
+    /// projects.json files keep loading after the schema bump. JSON property
+    /// lookups are case-insensitive so the parser works whether the writer
+    /// used camelCase (manual) or PascalCase (default System.Text.Json).
     /// </summary>
     private static IEnumerable<ProjectConfig> ParseProjectConfigs(string json)
     {
@@ -85,11 +100,28 @@ public partial class MainWindow : Window
             }
             else if (el.ValueKind == JsonValueKind.Object)
             {
-                var path = el.TryGetProperty("path", out var p) && p.ValueKind == JsonValueKind.String
-                    ? p.GetString() ?? "" : "";
-                var group = !el.TryGetProperty("groupByPrefix", out var g)
-                            || g.ValueKind != JsonValueKind.False;
-                yield return new ProjectConfig { Path = path, GroupByPrefix = group };
+                string? path = null;
+                bool? group = null;
+                foreach (var prop in el.EnumerateObject())
+                {
+                    if (prop.NameEquals("path") &&
+                        prop.Value.ValueKind == JsonValueKind.String)
+                        path = prop.Value.GetString();
+                    else if (prop.NameEquals("groupByPrefix"))
+                        group = prop.Value.ValueKind != JsonValueKind.False;
+                    else if (string.Equals(prop.Name, "Path",
+                                StringComparison.OrdinalIgnoreCase) &&
+                             prop.Value.ValueKind == JsonValueKind.String)
+                        path = prop.Value.GetString();
+                    else if (string.Equals(prop.Name, "GroupByPrefix",
+                                StringComparison.OrdinalIgnoreCase))
+                        group = prop.Value.ValueKind != JsonValueKind.False;
+                }
+                yield return new ProjectConfig
+                {
+                    Path = path ?? "",
+                    GroupByPrefix = group ?? true
+                };
             }
         }
     }
@@ -102,7 +134,11 @@ public partial class MainWindow : Window
                 .Select(p => new ProjectConfig { Path = p.FolderPath, GroupByPrefix = p.GroupByPrefix })
                 .ToList();
             File.WriteAllText(_configPath, JsonSerializer.Serialize(cfgs,
-                new JsonSerializerOptions { WriteIndented = false }));
+                new JsonSerializerOptions
+                {
+                    WriteIndented = false,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                }));
         }
         catch { /* best-effort */ }
     }
