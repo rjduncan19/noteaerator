@@ -29,17 +29,9 @@ Two big features and one reliability fix:
 
 ## Step 1 — open the bundle's folder
 
-The build output is here (copy this path into Win+R or Explorer's
-address bar):
+Click here to open the build output folder in File Explorer:
 
-```
-C:\Users\richardd\source-rjduncan19\noteaerator\packaging\store\dist
-```
-
-> 🐛 Heads-up: `file://` Markdown links don't render as clickable in
-> Note Aerator yet — `markdown-it` blocks `file:` URLs by default for
-> safety. There's a design decision pending on how to safely re-enable
-> them (see today's chat). For now, copy the path manually.
+[📁 Open dist folder](file:///C:/Users/richardd/source-rjduncan19/noteaerator/packaging/store/dist)
 
 You should see:
 
