@@ -22,3 +22,24 @@ internal sealed class DepthToIndentConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>
+/// Converts a tree depth (int) to the full width of the chevron hit-target
+/// column: depth-indent + chevron glyph + comfortable gutter. This lets a
+/// click anywhere in the indented "left gutter" of a row toggle expand /
+/// collapse, instead of forcing pixel-perfect aim on the chevron glyph.
+/// </summary>
+internal sealed class DepthToChevronHitWidthConverter : IValueConverter
+{
+    public const double ChevronGlyphWidth = 16.0;
+    public const double GutterRight = 6.0;
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var depth = value is int d ? d : 0;
+        return depth * DepthToIndentConverter.IndentPerLevel + ChevronGlyphWidth + GutterRight;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

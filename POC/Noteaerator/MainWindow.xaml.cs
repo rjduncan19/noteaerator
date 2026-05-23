@@ -589,34 +589,47 @@ internal sealed class ProjectTab : IDisposable
 
     private DataTemplate BuildFileItemTemplate()
     {
-        // Each row: [chevron-or-spacer 16px] [indented label with ellipsis].
-        // Indent is applied to the outer DockPanel via a depth -> Thickness
-        // converter so child rows visually shift right. Right-click is wired
-        // at the ListBox level (PreviewMouseRightButtonDown) so the menu is
-        // built freshly per click.
+        // Row layout:
+        //   [Border: indent + chevron-glyph + right gutter] [label]
+        //
+        // The Border on the left is one big hit-target whose width grows
+        // with depth (DepthToChevronHitWidthConverter). Background is set to
+        // Transparent so WPF actually hit-tests the empty space (without an
+        // explicit brush, hit-testing on a Border returns null). This means
+        // clicking anywhere in the row's indent column — including the
+        // blank space to the left of the glyph and the gutter between the
+        // glyph and the label — toggles expand/collapse. The chevron glyph
+        // itself is right-aligned inside the Border so it sits next to the
+        // label, leaving the indent visually correct.
         var template = new DataTemplate(typeof(FileListRow));
 
         var dock = new FrameworkElementFactory(typeof(DockPanel));
         dock.SetValue(DockPanel.LastChildFillProperty, true);
-        dock.SetBinding(FrameworkElement.MarginProperty,
+
+        var chevronHit = new FrameworkElementFactory(typeof(System.Windows.Controls.Border));
+        chevronHit.SetValue(DockPanel.DockProperty, Dock.Left);
+        chevronHit.SetValue(System.Windows.Controls.Border.BackgroundProperty,
+            System.Windows.Media.Brushes.Transparent);
+        chevronHit.SetBinding(FrameworkElement.WidthProperty,
             new System.Windows.Data.Binding(nameof(FileListRow.Depth))
             {
-                Converter = new DepthToIndentConverter()
+                Converter = new DepthToChevronHitWidthConverter()
             });
-
-        // Chevron (dedicated hit-target so a click on it does not also
-        // open the file behind a file-folder row).
-        var chevron = new FrameworkElementFactory(typeof(TextBlock));
-        chevron.SetValue(DockPanel.DockProperty, Dock.Left);
-        chevron.SetBinding(TextBlock.TextProperty,
-            new System.Windows.Data.Binding(nameof(FileListRow.ChevronGlyph)));
-        chevron.SetValue(FrameworkElement.WidthProperty, 14.0);
-        chevron.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 0, 4, 0));
-        chevron.SetValue(TextBlock.TextAlignmentProperty, TextAlignment.Center);
-        chevron.SetValue(TextBlock.FontSizeProperty, 10.0);
-        chevron.SetValue(FrameworkElement.CursorProperty, Cursors.Hand);
-        chevron.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent,
+        chevronHit.SetValue(FrameworkElement.CursorProperty, Cursors.Hand);
+        chevronHit.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent,
             new MouseButtonEventHandler(OnChevronClick));
+
+        var chevronGlyph = new FrameworkElementFactory(typeof(TextBlock));
+        chevronGlyph.SetBinding(TextBlock.TextProperty,
+            new System.Windows.Data.Binding(nameof(FileListRow.ChevronGlyph)));
+        chevronGlyph.SetValue(TextBlock.FontSizeProperty, 10.0);
+        chevronGlyph.SetValue(FrameworkElement.HorizontalAlignmentProperty,
+            HorizontalAlignment.Right);
+        chevronGlyph.SetValue(FrameworkElement.VerticalAlignmentProperty,
+            VerticalAlignment.Center);
+        chevronGlyph.SetValue(FrameworkElement.MarginProperty,
+            new Thickness(0, 0, DepthToChevronHitWidthConverter.GutterRight, 0));
+        chevronHit.AppendChild(chevronGlyph);
 
         var label = new FrameworkElementFactory(typeof(TextBlock));
         label.SetBinding(TextBlock.TextProperty,
@@ -624,8 +637,10 @@ internal sealed class ProjectTab : IDisposable
         label.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
         label.SetBinding(FrameworkElement.ToolTipProperty,
             new System.Windows.Data.Binding(nameof(FileListRow.FilePath)));
+        label.SetValue(FrameworkElement.VerticalAlignmentProperty,
+            VerticalAlignment.Center);
 
-        dock.AppendChild(chevron);
+        dock.AppendChild(chevronHit);
         dock.AppendChild(label);
 
         template.VisualTree = dock;
