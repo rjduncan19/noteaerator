@@ -7,6 +7,48 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-05-23 — File-list prefix grouping
+
+- **decision**: implemented Proposal A from
+  `POC/file-list-grouping-proposals.md` with the user's
+  modifications: 1-member groups are allowed (so adding a file never
+  reshuffles existing entries), `-overview` files act as the parent
+  anchor (`corp-crwd-overview.md` represents `corp-crwd`), and the
+  on/off control is a right-click "Group by prefix" toggle on each
+  project tab (default ON, persisted per project). _artifacts_:
+  `POC/Noteaerator.Core/PrefixGrouping.cs`,
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **code**: added `Noteaerator.Core.PrefixGrouping` — pure trie
+  builder + flattener with chain-collapse so a meaningless parent
+  (e.g. `corp` with only `orcl` under it) renders as `corp-orcl`
+  instead of `corp > orcl`. Numeric leading tokens (`30-…`) are
+  treated as sort keys, never as grouping tokens. Max depth = 3;
+  tokens beyond the cap fold into the deepest node's tail.
+  _artifacts_: `POC/Noteaerator.Core/PrefixGrouping.cs`
+- **code**: refactored `ProjectTab` to render
+  `ObservableCollection<FileListRow>` instead of the old
+  `FileEntry` list. New data template shows a chevron hit-target +
+  depth-indented label (via `DepthToIndentConverter`). Chevron click
+  toggles `IsExpanded` on the underlying `PrefixNode` and
+  re-flattens; row click opens the file (or, on synthetic
+  folder-only rows, toggles expansion). _artifacts_:
+  `POC/Noteaerator/MainWindow.xaml.cs`,
+  `POC/Noteaerator/Converters.cs`
+- **code**: bumped `projects.json` schema from `string[]` to
+  `[{path, groupByPrefix}, …]`. Loader still accepts the old shape
+  (existing installs keep working); saver always writes the new
+  shape. Search hits inside a collapsed group auto-expand their
+  ancestors so the result is reachable. _artifacts_:
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **verify**: 37/37 tests pass (15 new in
+  `PrefixGroupingTests.cs` covering tokenize, overview alias,
+  chain-collapse, depth cap, numeric sort, in-session expand-state
+  preservation, and the Security-folder example). Built the
+  solution clean (0 warnings) and launched the app to confirm the
+  existing 6 saved projects load and render with grouping enabled.
+  _artifacts_:
+  `POC/Noteaerator.Tests/PrefixGroupingTests.cs`
+
 ## 2026-05-21 — Note Aerator live on the Microsoft Store
 
 - **decision**: app published successfully under product ID

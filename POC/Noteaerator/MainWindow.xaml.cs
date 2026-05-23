@@ -8,12 +8,25 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
 using Noteaerator.Core;
 
 namespace Noteaerator;
+
+/// <summary>
+/// On-disk schema for projects.json. Old form was a plain string array of
+/// folder paths; new form is an array of these objects so per-project
+/// settings (currently just <see cref="GroupByPrefix"/>) can be persisted.
+/// Loader accepts both shapes; saver always writes the new shape.
+/// </summary>
+internal sealed class ProjectConfig
+{
+    public string Path { get; set; } = "";
+    public bool GroupByPrefix { get; set; } = true;
+}
 
 public partial class MainWindow : Window
 {
@@ -40,9 +53,11 @@ public partial class MainWindow : Window
         {
             if (File.Exists(_configPath))
             {
-                var paths = JsonSerializer.Deserialize<List<string>>(File.ReadAllText(_configPath)) ?? new();
-                foreach (var p in paths.Where(Directory.Exists))
-                    AddProject(p);
+                foreach (var cfg in ParseProjectConfigs(File.ReadAllText(_configPath)))
+                {
+                    if (Directory.Exists(cfg.Path))
+                        AddProject(cfg.Path, cfg.GroupByPrefix);
+                }
             }
         }
         catch (Exception ex)
@@ -54,12 +69,40 @@ public partial class MainWindow : Window
             ProjectsTabs.SelectedIndex = 0;
     }
 
+    /// <summary>
+    /// Accept both legacy (string[]) and new (object[]) shapes so existing
+    /// projects.json files keep loading after the schema bump.
+    /// </summary>
+    private static IEnumerable<ProjectConfig> ParseProjectConfigs(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != JsonValueKind.Array) yield break;
+        foreach (var el in doc.RootElement.EnumerateArray())
+        {
+            if (el.ValueKind == JsonValueKind.String)
+            {
+                yield return new ProjectConfig { Path = el.GetString() ?? "", GroupByPrefix = true };
+            }
+            else if (el.ValueKind == JsonValueKind.Object)
+            {
+                var path = el.TryGetProperty("path", out var p) && p.ValueKind == JsonValueKind.String
+                    ? p.GetString() ?? "" : "";
+                var group = !el.TryGetProperty("groupByPrefix", out var g)
+                            || g.ValueKind != JsonValueKind.False;
+                yield return new ProjectConfig { Path = path, GroupByPrefix = group };
+            }
+        }
+    }
+
     private void SaveProjects()
     {
         try
         {
-            var paths = _projects.Select(p => p.FolderPath).ToList();
-            File.WriteAllText(_configPath, JsonSerializer.Serialize(paths));
+            var cfgs = _projects
+                .Select(p => new ProjectConfig { Path = p.FolderPath, GroupByPrefix = p.GroupByPrefix })
+                .ToList();
+            File.WriteAllText(_configPath, JsonSerializer.Serialize(cfgs,
+                new JsonSerializerOptions { WriteIndented = false }));
         }
         catch { /* best-effort */ }
     }
@@ -69,7 +112,7 @@ public partial class MainWindow : Window
         var dlg = new OpenFolderDialog { Title = "Pick a project folder containing .md files" };
         if (dlg.ShowDialog() == true)
         {
-            AddProject(dlg.FolderName);
+            AddProject(dlg.FolderName, groupByPrefix: true);
             ProjectsTabs.SelectedIndex = ProjectsTabs.Items.Count - 1;
             SaveProjects();
         }
@@ -238,13 +281,16 @@ public partial class MainWindow : Window
         SearchInput.Focus();
     }
 
-    private void AddProject(string folderPath)
+    private void AddProject(string folderPath, bool groupByPrefix)
     {
         if (_projects.Any(p => string.Equals(p.FolderPath, folderPath, StringComparison.OrdinalIgnoreCase)))
             return;
 
         var pt = new ProjectTab(folderPath, (text, tip) =>
-            Dispatcher.Invoke(() => SetStatus(text, tip)));
+            Dispatcher.Invoke(() => SetStatus(text, tip)))
+        {
+            GroupByPrefix = groupByPrefix
+        };
         _projects.Add(pt);
 
         var headerText = new TextBlock { Text = Path.GetFileName(folderPath.TrimEnd('\\', '/')) };
@@ -257,8 +303,27 @@ public partial class MainWindow : Window
             Tag = pt
         };
 
-        // Right-click on a project tab → Remove project
+        // Right-click on a project tab:
+        //   * Group by prefix (checkable, default ON) — toggles per-project.
+        //   * Remove project from list.
         var menu = new ContextMenu();
+
+        var groupItem = new MenuItem
+        {
+            Header = "Group by prefix",
+            IsCheckable = true,
+            IsChecked = pt.GroupByPrefix,
+            ToolTip = "Group files that share a leading dash-separated prefix (e.g. corp-orcl, corp-orcl-thomas)."
+        };
+        groupItem.Click += (_, _) =>
+        {
+            pt.GroupByPrefix = groupItem.IsChecked;
+            SaveProjects();
+        };
+        menu.Items.Add(groupItem);
+
+        menu.Items.Add(new Separator());
+
         var removeItem = new MenuItem { Header = "Remove project from list" };
         removeItem.Click += (_, _) =>
         {
@@ -268,6 +333,7 @@ public partial class MainWindow : Window
             if (ans == MessageBoxResult.Yes) RemoveProject(pt);
         };
         menu.Items.Add(removeItem);
+
         tabItem.ContextMenu = menu;
 
         ProjectsTabs.Items.Add(tabItem);
@@ -283,12 +349,31 @@ internal sealed class ProjectTab : IDisposable
     public Grid Root { get; }
     public string? CurrentFile => _currentFile;
 
+    private bool _groupByPrefix = true;
+    public bool GroupByPrefix
+    {
+        get => _groupByPrefix;
+        set
+        {
+            if (_groupByPrefix == value) return;
+            _groupByPrefix = value;
+            // Drop the trees so the next populate starts from a clean slate
+            // when switching modes (no half-applied expand state).
+            _activeTree = null;
+            _archivedTree = null;
+            PopulateFiles();
+        }
+    }
+
     private readonly ListBox _activeList;
     private readonly ListBox _archivedList;
     private readonly Expander _archiveExpander;
     private readonly TextBlock _archiveHeaderText;
-    private readonly ObservableCollection<FileEntry> _activeFiles = new();
-    private readonly ObservableCollection<FileEntry> _archivedFiles = new();
+    private readonly ObservableCollection<FileListRow> _activeRows = new();
+    private readonly ObservableCollection<FileListRow> _archivedRows = new();
+
+    private PrefixNode? _activeTree;
+    private PrefixNode? _archivedTree;
 
     private readonly WebView2 _webView;
     private readonly FileSystemWatcher _mdWatcher;
@@ -325,14 +410,14 @@ internal sealed class ProjectTab : IDisposable
         var leftPanel = new DockPanel { LastChildFill = true };
         leftPanel.SetResourceReference(Control.BackgroundProperty, "SurfaceBrush");
 
-        _activeList = new ListBox { ItemsSource = _activeFiles };
+        _activeList = new ListBox { ItemsSource = _activeRows };
         if (Application.Current?.TryFindResource("FileListBoxStyle") is Style listStyle)
             _activeList.Style = listStyle;
         _activeList.ItemTemplate = BuildFileItemTemplate();
         _activeList.SelectionChanged += OnActiveSelected;
         _activeList.PreviewMouseRightButtonDown += (s, e) => OnFileRightClick(s, e, isArchived: false);
 
-        _archivedList = new ListBox { ItemsSource = _archivedFiles };
+        _archivedList = new ListBox { ItemsSource = _archivedRows };
         if (Application.Current?.TryFindResource("FileListBoxStyle") is Style listStyle2)
             _archivedList.Style = listStyle2;
         _archivedList.ItemTemplate = BuildFileItemTemplate();
@@ -468,29 +553,73 @@ internal sealed class ProjectTab : IDisposable
 
     private DataTemplate BuildFileItemTemplate()
     {
-        // Simple: a TextBlock with the file's display name, ellipsis-trimmed,
-        // tooltip = full path. Right-click context menu is wired on the
-        // ListBox via PreviewMouseRightButtonDown so the menu can be built
-        // freshly per-click without DataTemplate sharing pitfalls.
-        var template = new DataTemplate(typeof(FileEntry));
-        var tb = new FrameworkElementFactory(typeof(TextBlock));
-        tb.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(nameof(FileEntry.Display)));
-        tb.SetBinding(FrameworkElement.ToolTipProperty, new System.Windows.Data.Binding(nameof(FileEntry.Path)));
-        tb.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
-        template.VisualTree = tb;
+        // Each row: [chevron-or-spacer 16px] [indented label with ellipsis].
+        // Indent is applied to the outer DockPanel via a depth -> Thickness
+        // converter so child rows visually shift right. Right-click is wired
+        // at the ListBox level (PreviewMouseRightButtonDown) so the menu is
+        // built freshly per click.
+        var template = new DataTemplate(typeof(FileListRow));
+
+        var dock = new FrameworkElementFactory(typeof(DockPanel));
+        dock.SetValue(DockPanel.LastChildFillProperty, true);
+        dock.SetBinding(FrameworkElement.MarginProperty,
+            new System.Windows.Data.Binding(nameof(FileListRow.Depth))
+            {
+                Converter = new DepthToIndentConverter()
+            });
+
+        // Chevron (dedicated hit-target so a click on it does not also
+        // open the file behind a file-folder row).
+        var chevron = new FrameworkElementFactory(typeof(TextBlock));
+        chevron.SetValue(DockPanel.DockProperty, Dock.Left);
+        chevron.SetBinding(TextBlock.TextProperty,
+            new System.Windows.Data.Binding(nameof(FileListRow.ChevronGlyph)));
+        chevron.SetValue(FrameworkElement.WidthProperty, 14.0);
+        chevron.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 0, 4, 0));
+        chevron.SetValue(TextBlock.TextAlignmentProperty, TextAlignment.Center);
+        chevron.SetValue(TextBlock.FontSizeProperty, 10.0);
+        chevron.SetValue(FrameworkElement.CursorProperty, Cursors.Hand);
+        chevron.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent,
+            new MouseButtonEventHandler(OnChevronClick));
+
+        var label = new FrameworkElementFactory(typeof(TextBlock));
+        label.SetBinding(TextBlock.TextProperty,
+            new System.Windows.Data.Binding(nameof(FileListRow.Display)));
+        label.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+        label.SetBinding(FrameworkElement.ToolTipProperty,
+            new System.Windows.Data.Binding(nameof(FileListRow.FilePath)));
+
+        dock.AppendChild(chevron);
+        dock.AppendChild(label);
+
+        template.VisualTree = dock;
         template.Seal();
         return template;
+    }
+
+    private void OnChevronClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe &&
+            fe.DataContext is FileListRow row &&
+            row.HasChildren && row.Node != null)
+        {
+            row.Node.IsExpanded = !row.Node.IsExpanded;
+            // We are grouping ON if we got a chevron click at all.
+            PopulateFiles();
+            e.Handled = true;
+        }
     }
 
     private void OnFileRightClick(object sender, MouseButtonEventArgs e, bool isArchived)
     {
         if (sender is not ListBox lb) return;
-        // Find ListBoxItem under the cursor.
         var dep = e.OriginalSource as DependencyObject;
-        while (dep != null && dep is not ListBoxItem) dep = System.Windows.Media.VisualTreeHelper.GetParent(dep);
-        if (dep is not ListBoxItem lbi || lbi.DataContext is not FileEntry fe) return;
+        while (dep != null && dep is not ListBoxItem) dep = VisualTreeHelper.GetParent(dep);
+        if (dep is not ListBoxItem lbi || lbi.DataContext is not FileListRow row) return;
 
-        // Select it so it's clear what the menu acts on.
+        // Folder-only rows (synthetic groups) have no file to archive — bail.
+        if (!row.IsFile) { e.Handled = true; return; }
+
         lbi.IsSelected = true;
 
         var menu = new ContextMenu();
@@ -498,7 +627,7 @@ internal sealed class ProjectTab : IDisposable
         {
             Header = isArchived ? "Restore from Archive" : "Move to Archive…"
         };
-        var path = fe.Path;
+        var path = row.FilePath!;
         item.Click += (_, _) =>
         {
             if (isArchived) RestoreFile(path);
@@ -582,14 +711,12 @@ internal sealed class ProjectTab : IDisposable
     {
         var prevFile = _currentFile;
 
-        var active = SafeEnum(FolderPath).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
+        var active = SafeEnum(FolderPath).ToList();
         var archived = Directory.Exists(ArchiveDir)
-            ? SafeEnum(ArchiveDir).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList()
+            ? SafeEnum(ArchiveDir).ToList()
             : new List<string>();
 
-        // Spin up the archive watchers lazily once the archive dir exists,
-        // so newly-archived files keep getting picked up without a recursive
-        // watcher on the project root.
+        // Spin up the archive watchers lazily once the archive dir exists.
         if (Directory.Exists(ArchiveDir) && _archiveMdWatcher == null)
         {
             try
@@ -600,37 +727,58 @@ internal sealed class ProjectTab : IDisposable
             catch { /* best-effort */ }
         }
 
+        List<FileListRow> activeRows;
+        List<FileListRow> archivedRows;
+        if (_groupByPrefix)
+        {
+            _activeTree = PrefixGrouping.BuildTree(active, previous: _activeTree);
+            activeRows = PrefixGrouping.Flatten(_activeTree).ToList();
+            _archivedTree = PrefixGrouping.BuildTree(archived, previous: _archivedTree);
+            archivedRows = PrefixGrouping.Flatten(_archivedTree).ToList();
+        }
+        else
+        {
+            _activeTree = null;
+            _archivedTree = null;
+            activeRows = PrefixGrouping.Flat(active).ToList();
+            archivedRows = PrefixGrouping.Flat(archived).ToList();
+        }
+
         _suppressSelChange = true;
         try
         {
-            _activeFiles.Clear();
-            foreach (var f in active) _activeFiles.Add(new FileEntry(f));
-            _archivedFiles.Clear();
-            foreach (var f in archived) _archivedFiles.Add(new FileEntry(f));
+            _activeRows.Clear();
+            foreach (var r in activeRows) _activeRows.Add(r);
+            _archivedRows.Clear();
+            foreach (var r in archivedRows) _archivedRows.Add(r);
         }
         finally { _suppressSelChange = false; }
 
-        _archiveHeaderText.Text = archived.Count > 0 ? $"Archive  ({archived.Count})" : "Archive";
+        // Show count of *files* (not rows) in the archive header.
+        var archivedFileCount = archived.Count;
+        _archiveHeaderText.Text = archivedFileCount > 0
+            ? $"Archive  ({archivedFileCount})"
+            : "Archive";
 
-        if (_activeFiles.Count == 0 && _archivedFiles.Count == 0)
+        if (active.Count == 0 && archived.Count == 0)
         {
             _setStatus($"No .md files in {FolderPath}", FolderPath);
             return;
         }
 
-        // Restore previous selection if possible.
-        FileEntry? toSelect = null;
+        // Restore previous selection.
+        FileListRow? toSelect = null;
         bool inArchive = false;
         if (prevFile != null)
         {
-            toSelect = _activeFiles.FirstOrDefault(fe => Eq(fe.Path, prevFile));
+            toSelect = _activeRows.FirstOrDefault(r => r.IsFile && Eq(r.FilePath, prevFile));
             if (toSelect == null)
             {
-                toSelect = _archivedFiles.FirstOrDefault(fe => Eq(fe.Path, prevFile));
+                toSelect = _archivedRows.FirstOrDefault(r => r.IsFile && Eq(r.FilePath, prevFile));
                 if (toSelect != null) inArchive = true;
             }
         }
-        toSelect ??= _activeFiles.FirstOrDefault();
+        toSelect ??= _activeRows.FirstOrDefault(r => r.IsFile);
 
         if (toSelect != null)
         {
@@ -649,7 +797,7 @@ internal sealed class ProjectTab : IDisposable
                 }
             }
             finally { _suppressSelChange = false; }
-            _currentFile = toSelect.Path;
+            _currentFile = toSelect.FilePath;
             _ = LoadCurrentAsync();
         }
     }
@@ -666,27 +814,53 @@ internal sealed class ProjectTab : IDisposable
     private void OnActiveSelected(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressSelChange) return;
-        if (_activeList.SelectedItem is FileEntry fe)
+        if (_activeList.SelectedItem is not FileListRow row) return;
+
+        if (!row.IsFile)
         {
-            _suppressSelChange = true;
-            try { _archivedList.SelectedItem = null; }
-            finally { _suppressSelChange = false; }
-            _currentFile = fe.Path;
-            _ = LoadCurrentAsync();
+            // Clicking a synthetic folder row toggles expansion and
+            // immediately clears the selection so it never looks "active".
+            if (row.HasChildren && row.Node != null)
+            {
+                row.Node.IsExpanded = !row.Node.IsExpanded;
+                _suppressSelChange = true;
+                try { _activeList.SelectedItem = null; }
+                finally { _suppressSelChange = false; }
+                PopulateFiles();
+            }
+            return;
         }
+
+        _suppressSelChange = true;
+        try { _archivedList.SelectedItem = null; }
+        finally { _suppressSelChange = false; }
+        _currentFile = row.FilePath;
+        _ = LoadCurrentAsync();
     }
 
     private void OnArchivedSelected(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressSelChange) return;
-        if (_archivedList.SelectedItem is FileEntry fe)
+        if (_archivedList.SelectedItem is not FileListRow row) return;
+
+        if (!row.IsFile)
         {
-            _suppressSelChange = true;
-            try { _activeList.SelectedItem = null; }
-            finally { _suppressSelChange = false; }
-            _currentFile = fe.Path;
-            _ = LoadCurrentAsync();
+            if (row.HasChildren && row.Node != null)
+            {
+                row.Node.IsExpanded = !row.Node.IsExpanded;
+                _suppressSelChange = true;
+                try { _archivedList.SelectedItem = null; }
+                finally { _suppressSelChange = false; }
+                PopulateFiles();
+            }
+            return;
         }
+
+        _suppressSelChange = true;
+        try { _activeList.SelectedItem = null; }
+        finally { _suppressSelChange = false; }
+        _currentFile = row.FilePath;
+        _ = LoadCurrentAsync();
     }
 
     public void Refresh()
@@ -703,24 +877,67 @@ internal sealed class ProjectTab : IDisposable
     /// </summary>
     public void OpenFileForSearch(SearchHit hit)
     {
-        var fe = _activeFiles.FirstOrDefault(f => Eq(f.Path, hit.FilePath))
-              ?? _archivedFiles.FirstOrDefault(f => Eq(f.Path, hit.FilePath));
-        if (fe == null) return;
+        var row = _activeRows.FirstOrDefault(r => r.IsFile && Eq(r.FilePath, hit.FilePath))
+               ?? _archivedRows.FirstOrDefault(r => r.IsFile && Eq(r.FilePath, hit.FilePath));
+        if (row == null)
+        {
+            // The file may exist on disk but be hidden inside a collapsed
+            // group — expand its ancestors and try again.
+            EnsureVisible(hit.FilePath);
+            row = _activeRows.FirstOrDefault(r => r.IsFile && Eq(r.FilePath, hit.FilePath))
+               ?? _archivedRows.FirstOrDefault(r => r.IsFile && Eq(r.FilePath, hit.FilePath));
+            if (row == null) return;
+        }
 
-        var inArchive = _archivedFiles.Contains(fe);
+        var inArchive = _archivedRows.Contains(row);
         if (inArchive) _archiveExpander.IsExpanded = true;
 
         _suppressSelChange = true;
         try
         {
-            if (inArchive) { _archivedList.SelectedItem = fe; _activeList.SelectedItem = null; }
-            else           { _activeList.SelectedItem   = fe; _archivedList.SelectedItem = null; }
+            if (inArchive) { _archivedList.SelectedItem = row; _activeList.SelectedItem = null; }
+            else           { _activeList.SelectedItem   = row; _archivedList.SelectedItem = null; }
         }
         finally { _suppressSelChange = false; }
 
-        _currentFile = fe.Path;
+        _currentFile = row.FilePath;
         _pendingScroll = hit;
         _ = LoadCurrentAsync();
+    }
+
+    /// <summary>
+    /// Expand every ancestor of the row holding <paramref name="filePath"/>
+    /// (in either tree) so search hits aren't lost inside a collapsed group.
+    /// </summary>
+    private void EnsureVisible(string filePath)
+    {
+        bool expanded = ExpandAncestorsOf(_activeTree, filePath)
+                     || ExpandAncestorsOf(_archivedTree, filePath);
+        if (expanded) PopulateFiles();
+    }
+
+    private static bool ExpandAncestorsOf(PrefixNode? root, string filePath)
+    {
+        if (root == null) return false;
+        return Walk(root, new List<PrefixNode>());
+
+        bool Walk(PrefixNode node, List<PrefixNode> ancestors)
+        {
+            if (node.FilePath != null &&
+                string.Equals(node.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var a in ancestors) a.IsExpanded = true;
+                return true;
+            }
+            ancestors.Add(node);
+            try
+            {
+                foreach (var child in node.Children.Values)
+                    if (Walk(child, ancestors)) return true;
+                return false;
+            }
+            finally { ancestors.RemoveAt(ancestors.Count - 1); }
+        }
     }
 
     // ---------------- WebView2 + render plumbing ----------------
@@ -1035,17 +1252,6 @@ internal sealed class ProjectTab : IDisposable
 }
 
 // =====================================================================================
-// Tiny DTO bound to ListBox items.
+// (FileEntry removed — the file list is now driven by FileListRow from
+// Noteaerator.Core which carries both file rows and synthetic-folder rows.)
 // =====================================================================================
-internal sealed class FileEntry
-{
-    public string Path { get; }
-    public string Display { get; }
-
-    public FileEntry(string path)
-    {
-        Path = path;
-        Display = System.IO.Path.GetFileName(path);
-    }
-    public override string ToString() => Display;
-}
