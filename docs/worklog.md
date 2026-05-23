@@ -7,6 +7,51 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-05-23 — Prefix-group UX polish + naming guidance
+
+- **code**: clicking the *label* of a synthetic folder row now jumps to
+  content instead of toggling expansion. The chevron retains the
+  expand/collapse behavior. When the folder has a file at its node
+  (typically via the `-overview` alias), that file opens; otherwise
+  the first descendant file in DFS / numeric-sort order opens, and
+  the path to it is auto-expanded so the selection is visible. This
+  removes the "dead row" feeling — every click on a row text now
+  navigates to content. _artifacts_:
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **code**: added two pure helpers in `PrefixGrouping` —
+  `FirstFileIn(node)` (DFS / sort-key-aware) and
+  `ExpandAncestorsOf(root, target)`. Refactored the existing
+  EnsureVisible-by-path helper in MainWindow to share the
+  expansion code rather than duplicating the recursion. _artifacts_:
+  `POC/Noteaerator.Core/PrefixGrouping.cs`,
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **doc**: expanded the bundled `01-Welcome.md` with a new
+  "How to name files for nice grouping" section pushing back on
+  abbreviations (use `company-google-larry.md`, not
+  `co-ggl-lar.md`) and recommending `<prefix>-overview.md` to
+  anchor non-trivial groups. Added an "If you use an AI assistant"
+  section with a copy-pasteable snippet for the user's folder-level
+  `AGENTS.md`. Updated `02-Tips and Tricks.md`'s prefix-grouping
+  section to describe the new chevron-vs-label click behavior and
+  the expanded sample uses `company-google`, `company-anthropic`,
+  etc. instead of the old `corp-orcl` shorthand. _artifacts_:
+  `POC/Noteaerator/Assets/FirstRun/01-Welcome.md`,
+  `POC/Noteaerator/Assets/FirstRun/02-Tips and Tricks.md`
+- **verify**: 63/63 tests pass (4 new in `PrefixGroupingTests.cs`
+  covering FirstFileIn at-node, FirstFileIn DFS into folder-only
+  subtree, FirstFileIn respecting numeric sort keys, and
+  ExpandAncestorsOf reaching a previously-hidden descendant).
+  Launched the dev build and confirmed the click behavior.
+- **code**: rebuilt the v0.1.3 MSIX bundle. New SHA256:
+  `5F971D925CCB46661E0DE48F41D0FE5CECE58956566677A99D51816E0C6DEA84`
+  (replaces the previous
+  `C66235D605D2F4101755FC4DD824F69A504B0C4BA3C71D89D925882A725990C4`).
+  `packaging/store/UPDATE-v0.1.3.md` updated with the new hash; the
+  whats-new bullets are unchanged because this round is UX polish on
+  features already in the announce list. _artifacts_:
+  `packaging/store/dist/NoteAerator-0.1.3.0.msixbundle`,
+  `packaging/store/UPDATE-v0.1.3.md`
+
 ## 2026-05-23 — file:// link rendering + safe handling (Option A)
 
 - **decision**: per `POC/file-link-rendering-options.md`, chose Option

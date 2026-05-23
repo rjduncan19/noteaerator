@@ -266,6 +266,51 @@ public static class PrefixGrouping
         }
     }
 
+    /// <summary>
+    /// Returns the first file in DFS order under (or at) <paramref name="node"/>.
+    /// Used by the UI to navigate when the user clicks the *label* of a
+    /// synthetic folder row: they expect to land somewhere with content.
+    /// Returns null if the subtree contains no files (shouldn't happen for
+    /// any node that came from BuildTree, but safe to handle).
+    /// </summary>
+    public static PrefixNode? FirstFileIn(PrefixNode node)
+    {
+        if (node.HasFile) return node;
+        foreach (var c in SortedChildren(node))
+        {
+            var hit = FirstFileIn(c);
+            if (hit != null) return hit;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Expand every ancestor of <paramref name="target"/> within
+    /// <paramref name="root"/> so it becomes visible after flattening.
+    /// Returns true when target was found (and expansion applied).
+    /// </summary>
+    public static bool ExpandAncestorsOf(PrefixNode root, PrefixNode target)
+    {
+        return Walk(root, new List<PrefixNode>());
+
+        bool Walk(PrefixNode node, List<PrefixNode> ancestors)
+        {
+            if (ReferenceEquals(node, target))
+            {
+                foreach (var a in ancestors) a.IsExpanded = true;
+                return true;
+            }
+            ancestors.Add(node);
+            try
+            {
+                foreach (var child in node.Children.Values)
+                    if (Walk(child, ancestors)) return true;
+                return false;
+            }
+            finally { ancestors.RemoveAt(ancestors.Count - 1); }
+        }
+    }
+
     // -------------------- Internals --------------------
 
     private static void InsertFile(PrefixNode root, string path, int maxDepth)

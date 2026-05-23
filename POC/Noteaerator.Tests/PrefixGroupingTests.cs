@@ -166,6 +166,57 @@ public sealed class PrefixGroupingTests
     }
 
     [Fact]
+    public void FirstFileIn_returns_node_itself_when_it_holds_a_file()
+    {
+        var tree = PrefixGrouping.BuildTree(Paths("corp-orcl", "corp-orcl-thomas"));
+        var orcl = tree.Children["corp"].Children["orcl"];
+        var hit = PrefixGrouping.FirstFileIn(orcl);
+        Assert.NotNull(hit);
+        Assert.EndsWith("corp-orcl.md", hit!.FilePath);
+    }
+
+    [Fact]
+    public void FirstFileIn_descends_DFS_into_folder_only_subtrees()
+    {
+        // No "corp.md", no "corp-orcl.md" — only the leaf has content.
+        var tree = PrefixGrouping.BuildTree(Paths("corp-orcl-thomas", "corp-orcl-rita"));
+        var corp = tree.Children["corp"];
+        var hit = PrefixGrouping.FirstFileIn(corp);
+        Assert.NotNull(hit);
+        // 20-style sort isn't in play; alphabetical: rita < thomas.
+        Assert.EndsWith("corp-orcl-rita.md", hit!.FilePath);
+    }
+
+    [Fact]
+    public void FirstFileIn_respects_numeric_sort_keys()
+    {
+        var tree = PrefixGrouping.BuildTree(
+            Paths("anthropic-30-followup", "anthropic-20-deep-dive"));
+        var ant = tree.Children["anthropic"];
+        var hit = PrefixGrouping.FirstFileIn(ant);
+        Assert.EndsWith("anthropic-20-deep-dive.md", hit!.FilePath);
+    }
+
+    [Fact]
+    public void ExpandAncestorsOf_makes_a_collapsed_descendant_visible()
+    {
+        var tree = PrefixGrouping.BuildTree(Paths(
+            "company-google-overview", "company-google-larry"));
+        // Collapse everything.
+        tree.Children["company"].IsExpanded = false;
+        tree.Children["company"].Children["google"].IsExpanded = false;
+
+        var larry = tree.Children["company"].Children["google"].Children["larry"];
+        Assert.True(PrefixGrouping.ExpandAncestorsOf(tree, larry));
+        Assert.True(tree.Children["company"].IsExpanded);
+        Assert.True(tree.Children["company"].Children["google"].IsExpanded);
+
+        // larry itself was a leaf — its own IsExpanded is untouched.
+        var rows = PrefixGrouping.Flatten(tree).ToList();
+        Assert.Contains(rows, r => r.IsFile && (r.FilePath?.EndsWith("larry.md") ?? false));
+    }
+
+    [Fact]
     public void Security_folder_example_produces_expected_groups()
     {
         // Mirrors the real Security folder used in the design discussion.

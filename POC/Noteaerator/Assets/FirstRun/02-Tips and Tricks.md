@@ -54,13 +54,21 @@ and merges cleanly across devices.
 ## Prefix grouping
 
 If you have files with shared dash-separated prefixes — e.g.
-`corp-orcl.md`, `corp-orcl-thomas.md`, `corp-anthropic.md` — Note
-Aerator groups them into a collapsible tree in the sidebar so the
-list stays readable as it grows.
+`company-google-larry.md`, `company-google-sundar.md`,
+`company-anthropic-dario.md` — Note Aerator groups them into a
+collapsible tree in the sidebar so the list stays readable as it
+grows.
 
 Right-click a project tab → uncheck **Group by prefix** to turn it
 off for that project. (It's per-project, on by default, saved with
 the project.)
+
+**Click behavior on a folder row:**
+
+- Click the **chevron** (▾ / ▸) to expand or collapse the group.
+- Click the **label text** to jump to content. If a
+  `<prefix>-overview.md` exists, you land on the overview. If not,
+  you land on the first descendant file in the group.
 
 A few nice touches that fall out of the algorithm:
 
@@ -68,9 +76,14 @@ A few nice touches that fall out of the algorithm:
   as a grouping token, so `00-running-status.md` and
   `30-quarterly-plan.md` won't group with each other.
 - `<prefix>-overview.md` acts as the anchor file for `<prefix>` —
-  other `<prefix>-…` files nest under it.
-- A meaningless single-child parent (`corp` containing only `orcl`)
-  is collapsed and rendered as `corp-orcl` directly.
+  other `<prefix>-…` files nest under it, and the overview itself
+  is what opens when you click the parent row.
+- A meaningless single-child parent (`company` containing only
+  `google`) is collapsed and rendered as `company-google` directly.
+
+See `01-Welcome.md` for naming conventions that make grouping look
+its best (full words, not abbreviations; one `-overview.md` per
+non-trivial group).
 
 ## Diagrams
 

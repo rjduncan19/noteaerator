@@ -854,15 +854,33 @@ internal sealed class ProjectTab : IDisposable
 
         if (!row.IsFile)
         {
-            // Clicking a synthetic folder row toggles expansion and
-            // immediately clears the selection so it never looks "active".
-            if (row.HasChildren && row.Node != null)
+            // Synthetic folder row (no file at this node). Per the UX
+            // discussion: clicking the *label* should jump to content, not
+            // toggle expansion. Find the first descendant file, expand the
+            // path to it, and select+load it. (The chevron has its own
+            // click handler that toggles expand/collapse without navigating.)
+            if (row.Node != null && _activeTree != null)
             {
-                row.Node.IsExpanded = !row.Node.IsExpanded;
-                _suppressSelChange = true;
-                try { _activeList.SelectedItem = null; }
-                finally { _suppressSelChange = false; }
-                PopulateFiles();
+                var target = PrefixGrouping.FirstFileIn(row.Node);
+                if (target != null)
+                {
+                    PrefixGrouping.ExpandAncestorsOf(_activeTree, target);
+                    PopulateFiles();
+                    var targetRow = _activeRows.FirstOrDefault(
+                        r => r.IsFile && Eq(r.FilePath, target.FilePath));
+                    if (targetRow != null)
+                    {
+                        _suppressSelChange = true;
+                        try
+                        {
+                            _activeList.SelectedItem = targetRow;
+                            _archivedList.SelectedItem = null;
+                        }
+                        finally { _suppressSelChange = false; }
+                        _currentFile = target.FilePath;
+                        _ = LoadCurrentAsync();
+                    }
+                }
             }
             return;
         }
@@ -881,13 +899,28 @@ internal sealed class ProjectTab : IDisposable
 
         if (!row.IsFile)
         {
-            if (row.HasChildren && row.Node != null)
+            if (row.Node != null && _archivedTree != null)
             {
-                row.Node.IsExpanded = !row.Node.IsExpanded;
-                _suppressSelChange = true;
-                try { _archivedList.SelectedItem = null; }
-                finally { _suppressSelChange = false; }
-                PopulateFiles();
+                var target = PrefixGrouping.FirstFileIn(row.Node);
+                if (target != null)
+                {
+                    PrefixGrouping.ExpandAncestorsOf(_archivedTree, target);
+                    PopulateFiles();
+                    var targetRow = _archivedRows.FirstOrDefault(
+                        r => r.IsFile && Eq(r.FilePath, target.FilePath));
+                    if (targetRow != null)
+                    {
+                        _suppressSelChange = true;
+                        try
+                        {
+                            _archivedList.SelectedItem = targetRow;
+                            _activeList.SelectedItem = null;
+                        }
+                        finally { _suppressSelChange = false; }
+                        _currentFile = target.FilePath;
+                        _ = LoadCurrentAsync();
+                    }
+                }
             }
             return;
         }
@@ -947,33 +980,29 @@ internal sealed class ProjectTab : IDisposable
     /// </summary>
     private void EnsureVisible(string filePath)
     {
-        bool expanded = ExpandAncestorsOf(_activeTree, filePath)
-                     || ExpandAncestorsOf(_archivedTree, filePath);
+        bool expanded = ExpandAncestorsOfFile(_activeTree, filePath)
+                     || ExpandAncestorsOfFile(_archivedTree, filePath);
         if (expanded) PopulateFiles();
     }
 
-    private static bool ExpandAncestorsOf(PrefixNode? root, string filePath)
+    private static bool ExpandAncestorsOfFile(PrefixNode? root, string filePath)
     {
         if (root == null) return false;
-        return Walk(root, new List<PrefixNode>());
+        var target = FindByPath(root, filePath);
+        return target != null && PrefixGrouping.ExpandAncestorsOf(root, target);
+    }
 
-        bool Walk(PrefixNode node, List<PrefixNode> ancestors)
+    private static PrefixNode? FindByPath(PrefixNode node, string filePath)
+    {
+        if (node.FilePath != null &&
+            string.Equals(node.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+            return node;
+        foreach (var c in node.Children.Values)
         {
-            if (node.FilePath != null &&
-                string.Equals(node.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
-            {
-                foreach (var a in ancestors) a.IsExpanded = true;
-                return true;
-            }
-            ancestors.Add(node);
-            try
-            {
-                foreach (var child in node.Children.Values)
-                    if (Walk(child, ancestors)) return true;
-                return false;
-            }
-            finally { ancestors.RemoveAt(ancestors.Count - 1); }
+            var hit = FindByPath(c, filePath);
+            if (hit != null) return hit;
         }
+        return null;
     }
 
     // ---------------- WebView2 + render plumbing ----------------
