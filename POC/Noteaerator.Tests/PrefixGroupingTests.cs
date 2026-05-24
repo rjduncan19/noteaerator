@@ -117,16 +117,17 @@ public sealed class PrefixGroupingTests
     }
 
     [Fact]
-    public void Max_depth_applies_when_files_diverge_below_the_cap()
+    public void Max_depth_extends_on_demand_when_files_collide_at_the_cap()
     {
+        // Both files share tokens [a,b,c] at the depth-3 cap with different
+        // tails "d-e" and "d-x". The engine extends past MaxDepth just enough
+        // to disambiguate (issue #6) so both files remain reachable instead
+        // of the second one being silently dropped.
         var rows = Flatten("a-b-c-d-e", "a-b-c-d-x").ToList();
-        // Both files share tokens [a,b,c] at depth-3 cap. Both should land
-        // at the same node with tails "d-e" and "d-x" respectively.
-        // Because they collide at node "c", second insert is dropped on the
-        // floor (first-write-wins). This is the documented behavior of
-        // exceeding MaxDepth — the engine doesn't try to multiplex multiple
-        // files into one node.
-        Assert.Single(rows);
+        var fileRows = rows.Where(r => r.IsFile).ToList();
+        Assert.Equal(2, fileRows.Count);
+        Assert.Contains(fileRows, r => r.FilePath!.EndsWith("a-b-c-d-e.md"));
+        Assert.Contains(fileRows, r => r.FilePath!.EndsWith("a-b-c-d-x.md"));
     }
 
     [Fact]
@@ -288,5 +289,80 @@ public sealed class PrefixGroupingTests
         var rows = PrefixGrouping.Flat(Paths("z", "AGENTS", "a")).ToList();
         Assert.Equal(new[] { "a.md", "z.md", "AGENTS.md" },
                      rows.Select(r => r.Display));
+    }
+
+    // -------- Issue #6: collisions at MaxDepth must not silently drop files. --------
+
+    private static List<string> AllFilePaths(PrefixNode root)
+    {
+        var acc = new List<string>();
+        Walk(root);
+        return acc;
+
+        void Walk(PrefixNode n)
+        {
+            if (n.HasFile) acc.Add(n.FilePath!);
+            foreach (var c in n.Children.Values) Walk(c);
+        }
+    }
+
+    [Fact]
+    public void Two_files_sharing_first_three_tokens_both_survive_the_tree()
+    {
+        // Real-world repro from issue #6 — both files map to giac/ab/post
+        // at MaxDepth=3 and the second one used to be silently dropped.
+        var paths = Paths(
+            "71-giac-ab-post-draft",
+            "72-giac-ab-post-draft-v2-with-feedback").ToList();
+        var tree = PrefixGrouping.BuildTree(paths);
+
+        var attached = AllFilePaths(tree);
+        Assert.Contains(paths[0], attached);
+        Assert.Contains(paths[1], attached);
+        Assert.Equal(2, attached.Count);
+
+        // And both must be reachable in the flat row list (with all groups expanded).
+        var rows = PrefixGrouping.Flatten(tree).ToList();
+        var filePaths = rows.Where(r => r.IsFile).Select(r => r.FilePath).ToList();
+        Assert.Contains(paths[0], filePaths);
+        Assert.Contains(paths[1], filePaths);
+    }
+
+    [Fact]
+    public void Three_way_collision_at_max_depth_keeps_all_three_files()
+    {
+        var paths = Paths(
+            "a-b-c-x",
+            "a-b-c-y",
+            "a-b-c-z-extra").ToList();
+        var tree = PrefixGrouping.BuildTree(paths);
+
+        var attached = AllFilePaths(tree);
+        Assert.Equal(3, attached.Count);
+        foreach (var p in paths) Assert.Contains(p, attached);
+    }
+
+    [Fact]
+    public void Collision_with_existing_file_already_at_leaf_pushes_new_file_into_child()
+    {
+        // a-b-c.md sits exactly at leaf "c" with no extra tail; a second file
+        // a-b-c-extra.md must NOT overwrite it — it should land under "c".
+        var paths = Paths("a-b-c", "a-b-c-extra").ToList();
+        var tree = PrefixGrouping.BuildTree(paths);
+
+        var attached = AllFilePaths(tree);
+        Assert.Equal(2, attached.Count);
+        foreach (var p in paths) Assert.Contains(p, attached);
+    }
+
+    [Fact]
+    public void Same_file_inserted_twice_is_idempotent()
+    {
+        var p = Path.Combine(@"C:\fake", "x-y-z-tail.md");
+        var tree = PrefixGrouping.BuildTree(new[] { p, p });
+
+        var attached = AllFilePaths(tree);
+        Assert.Single(attached);
+        Assert.Equal(p, attached[0]);
     }
 }

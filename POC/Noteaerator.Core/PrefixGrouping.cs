@@ -86,6 +86,19 @@ public sealed class PrefixNode
     }
 
     /// <summary>
+    /// Detach the file from this node (used when a collision forces an
+    /// already-attached file to be re-placed deeper in the tree — issue #6).
+    /// Leaves children, expand state, token, and depth untouched.
+    /// </summary>
+    internal void ClearFile()
+    {
+        FilePath = null;
+        FileSortKey = null;
+        FileExtraTail = "";
+        IsOverviewAlias = false;
+    }
+
+    /// <summary>
     /// Tokens beyond MaxDepth that were collapsed into this leaf, joined with
     /// '-'. Empty string when no tokens were dropped.
     /// </summary>
@@ -334,22 +347,75 @@ public static class PrefixGrouping
             sortKey = null;
         }
 
-        var pathTokens = tokens.Count <= maxDepth
-            ? tokens
-            : tokens.Take(maxDepth).ToList();
-
+        // Walk down to the would-be leaf at MaxDepth (or shallower if the
+        // name has fewer tokens). Past that depth, PlaceFile takes over and
+        // extends the tree on demand if a collision needs to be resolved.
+        int depth = System.Math.Min(tokens.Count, maxDepth);
         var node = root;
-        for (int i = 0; i < pathTokens.Count - 1; i++)
+        for (int i = 0; i < depth; i++)
         {
-            node = GetOrCreateChild(node, pathTokens[i]);
+            node = GetOrCreateChild(node, tokens[i]);
         }
-        var leaf = GetOrCreateChild(node, pathTokens[^1]);
 
-        var extraTail = tokens.Count > maxDepth
-            ? string.Join('-', tokens.Skip(maxDepth))
+        var tail = tokens.Skip(depth).ToList();
+        PlaceFile(node, path, sortKey, tail, isOverview);
+    }
+
+    /// <summary>
+    /// Attach <paramref name="path"/> to <paramref name="node"/>, extending the
+    /// tree past MaxDepth on demand when another distinct file is already at
+    /// the target leaf (issue #6). If the existing file has remaining tail
+    /// tokens, it gets pushed into a child node of its own so both files end
+    /// up reachable. The algorithm consumes one token from the new file's
+    /// tail per descent step and recurses for any further collisions.
+    /// </summary>
+    private static void PlaceFile(
+        PrefixNode node,
+        string path,
+        string? sortKey,
+        List<string> tail,
+        bool isOverview)
+    {
+        int i = 0;
+        while (node.HasFile
+               && !string.Equals(node.FilePath, path, System.StringComparison.OrdinalIgnoreCase)
+               && i < tail.Count)
+        {
+            if (!string.IsNullOrEmpty(node.FileExtraTail))
+            {
+                // Existing file has more tokens to disambiguate by — push it
+                // down to a child keyed on its next tail token, then descend
+                // the new file alongside it. Use recursion so the move itself
+                // can chain through further collisions.
+                var existingTail = node.FileExtraTail
+                    .Split('-', System.StringSplitOptions.RemoveEmptyEntries)
+                    .ToList();
+
+                var existingPath = node.FilePath!;
+                var existingSortKey = node.FileSortKey;
+                var existingIsOverview = node.IsOverviewAlias;
+                node.ClearFile();
+
+                var existingChild = GetOrCreateChild(node, existingTail[0]);
+                PlaceFile(
+                    existingChild,
+                    existingPath,
+                    existingSortKey,
+                    existingTail.Skip(1).ToList(),
+                    existingIsOverview);
+            }
+            // else: existing file lives exactly at this node with no remaining
+            // tail. It stays put; the new file descends as a sibling child.
+
+            node = GetOrCreateChild(node, tail[i]);
+            i++;
+        }
+
+        var newTail = i < tail.Count
+            ? string.Join('-', tail.Skip(i))
             : "";
 
-        leaf.AttachFile(path, sortKey, extraTail, isOverview);
+        node.AttachFile(path, sortKey, newTail, isOverview);
     }
 
     private static PrefixNode GetOrCreateChild(PrefixNode parent, string token)

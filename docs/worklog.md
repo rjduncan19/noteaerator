@@ -9,6 +9,24 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 
 ## 2026-05-24 — v0.1.3.1 bug-fix release
 
+- **code**: fixed issue [#6](https://github.com/rjduncan19/noteaerator/issues/6)
+  — silent file drop when two filenames in the same folder shared
+  their first three `-`-separated tokens (e.g.
+  `71-giac-ab-post-draft.md` + `72-giac-ab-post-draft-v2-with-feedback.md`).
+  `PrefixGrouping.InsertFile` now routes through a new `PlaceFile`
+  helper that extends past `DefaultMaxDepth` on demand: when a
+  collision is detected, the existing file gets pushed into a child
+  node and the new file descends alongside it, recursing if further
+  collisions occur down the chain. Added `PrefixNode.ClearFile`.
+  Tightened the existing `Max_depth_applies_when_files_diverge_below_the_cap`
+  test (renamed to `Max_depth_extends_on_demand_when_files_collide_at_the_cap`)
+  to assert the new — correct — behavior, plus 4 fresh tests covering
+  the real-world repro, 3-way collisions, file-at-leaf collisions,
+  and idempotent re-insertion. Caught only after the v0.1.3.1 tag
+  was first cut; fix was folded into the same release and the tag
+  was moved.
+  _artifacts_: `POC/Noteaerator.Core/PrefixGrouping.cs`,
+  `POC/Noteaerator.Tests/PrefixGroupingTests.cs`
 - **code**: fixed issue [#5](https://github.com/rjduncan19/noteaerator/issues/5)
   — AGENTS.md was no longer at the bottom of the file list after the
   v0.1.3 prefix-grouping rewrite. Added an "AGENTS.md always last"

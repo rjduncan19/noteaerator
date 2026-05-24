@@ -1,13 +1,21 @@
 # Update Note Aerator to v0.1.3.1 on the Microsoft Store
 
-Patch release covering two GitHub issues. Same Partner Center ritual as
+Patch release covering three GitHub issues. Same Partner Center ritual as
 v0.1.3 — the only differences are the bundle filename, the SHA256, and
 the "What's new" text.
 
 ## What changed in this release
 
-Two bug fixes against the v0.1.3 baseline:
+Three bug fixes against the v0.1.3 baseline:
 
+- **No more silently missing files** (issue
+  [#6](https://github.com/rjduncan19/noteaerator/issues/6)). When two
+  filenames in the same folder shared their first three
+  `-`-separated tokens (for example `71-giac-ab-post-draft.md` and
+  `72-giac-ab-post-draft-v2-with-feedback.md`), the second file used
+  to vanish from the project file list. The prefix-grouping engine
+  now extends past its depth cap just enough to keep every file
+  reachable.
 - **AGENTS.md no longer clutters the top of the file list** (issue
   [#5](https://github.com/rjduncan19/noteaerator/issues/5)). It is
   now always sorted to the bottom of the project. Files with a
