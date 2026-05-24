@@ -2,6 +2,11 @@
 
 [![Get it from Microsoft](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9N5DTC0FZP7M)
 
+> **📦 Install in one click from the Microsoft Store:**
+> **<https://apps.microsoft.com/detail/9N5DTC0FZP7M>**
+> (auto-updates, no admin, no zip wrangling). Other install options
+> are in [`INSTALL.md`](./INSTALL.md).
+
 A workspace for letting ideas, tasks, and project state breathe through
 human-guided AI refinement.
 

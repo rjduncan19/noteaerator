@@ -1,9 +1,33 @@
 # Installing Note Aerator
 
-This is an early POC. There is no signed installer yet — but there are
-**self-contained Windows builds** for both x64 and arm64 that need
-nothing on the target machine except a recent Edge / WebView2 runtime
-(present by default on Windows 10/11).
+## Recommended: install from the Microsoft Store
+
+[![Get it from Microsoft](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9N5DTC0FZP7M)
+
+**One-click install, auto-updates, no admin required:**
+
+**→ <https://apps.microsoft.com/detail/9N5DTC0FZP7M>**
+
+On a Windows machine you can also paste this into the Run dialog
+(`Win`+`R`) to jump straight to the listing in the Store app:
+
+```
+ms-windows-store://pdp/?productid=9N5DTC0FZP7M
+```
+
+The Store build is the same app as the zips below, just signed,
+sandboxed, and kept up to date for you. If you can install from the
+Store, prefer that — the rest of this page is for environments where
+the Store isn't an option (locked-down machines, kiosks, CI, etc.).
+
+---
+
+## Other install options
+
+This is an early POC. If the Microsoft Store isn't an option for you,
+there are **self-contained Windows builds** for both x64 and arm64
+that need nothing on the target machine except a recent Edge /
+WebView2 runtime (present by default on Windows 10/11).
 
 ## Download
 
