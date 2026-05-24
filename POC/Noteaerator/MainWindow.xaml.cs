@@ -16,18 +16,6 @@ using Noteaerator.Core;
 
 namespace Noteaerator;
 
-/// <summary>
-/// On-disk schema for projects.json. Old form was a plain string array of
-/// folder paths; new form is an array of these objects so per-project
-/// settings (currently just <see cref="GroupByPrefix"/>) can be persisted.
-/// Loader accepts both shapes; saver always writes the new shape.
-/// </summary>
-internal sealed class ProjectConfig
-{
-    public string Path { get; set; } = "";
-    public bool GroupByPrefix { get; set; } = true;
-}
-
 public partial class MainWindow : Window
 {
     private const string ArchiveSubdir = "archive";
@@ -35,6 +23,11 @@ public partial class MainWindow : Window
     private readonly List<ProjectTab> _projects = new();
     private readonly string _configPath;
     private System.Windows.Threading.DispatcherTimer? _searchDebounce;
+
+    // Forward-compat: preserve top-level array items we didn't recognize so
+    // a future schema version's data isn't dropped when an older build
+    // round-trips the file. See ProjectConfigStore for details.
+    private readonly List<JsonElement> _unknownRootItems = new();
 
     public MainWindow()
     {
@@ -66,10 +59,13 @@ public partial class MainWindow : Window
             }
             else
             {
-                foreach (var cfg in ParseProjectConfigs(File.ReadAllText(_configPath)))
+                var parsed = ProjectConfigStore.Parse(File.ReadAllText(_configPath));
+                _unknownRootItems.Clear();
+                _unknownRootItems.AddRange(parsed.UnknownRootItems);
+                foreach (var cfg in parsed.Projects)
                 {
                     if (Directory.Exists(cfg.Path))
-                        AddProject(cfg.Path, cfg.GroupByPrefix);
+                        AddProject(cfg.Path, cfg.GroupByPrefix, cfg.Extra);
                 }
             }
         }
@@ -82,63 +78,24 @@ public partial class MainWindow : Window
             ProjectsTabs.SelectedIndex = 0;
     }
 
-    /// <summary>
-    /// Accept both legacy (string[]) and new (object[]) shapes so existing
-    /// projects.json files keep loading after the schema bump. JSON property
-    /// lookups are case-insensitive so the parser works whether the writer
-    /// used camelCase (manual) or PascalCase (default System.Text.Json).
-    /// </summary>
-    private static IEnumerable<ProjectConfig> ParseProjectConfigs(string json)
-    {
-        using var doc = JsonDocument.Parse(json);
-        if (doc.RootElement.ValueKind != JsonValueKind.Array) yield break;
-        foreach (var el in doc.RootElement.EnumerateArray())
-        {
-            if (el.ValueKind == JsonValueKind.String)
-            {
-                yield return new ProjectConfig { Path = el.GetString() ?? "", GroupByPrefix = true };
-            }
-            else if (el.ValueKind == JsonValueKind.Object)
-            {
-                string? path = null;
-                bool? group = null;
-                foreach (var prop in el.EnumerateObject())
-                {
-                    if (prop.NameEquals("path") &&
-                        prop.Value.ValueKind == JsonValueKind.String)
-                        path = prop.Value.GetString();
-                    else if (prop.NameEquals("groupByPrefix"))
-                        group = prop.Value.ValueKind != JsonValueKind.False;
-                    else if (string.Equals(prop.Name, "Path",
-                                StringComparison.OrdinalIgnoreCase) &&
-                             prop.Value.ValueKind == JsonValueKind.String)
-                        path = prop.Value.GetString();
-                    else if (string.Equals(prop.Name, "GroupByPrefix",
-                                StringComparison.OrdinalIgnoreCase))
-                        group = prop.Value.ValueKind != JsonValueKind.False;
-                }
-                yield return new ProjectConfig
-                {
-                    Path = path ?? "",
-                    GroupByPrefix = group ?? true
-                };
-            }
-        }
-    }
-
     private void SaveProjects()
     {
         try
         {
-            var cfgs = _projects
-                .Select(p => new ProjectConfig { Path = p.FolderPath, GroupByPrefix = p.GroupByPrefix })
-                .ToList();
-            File.WriteAllText(_configPath, JsonSerializer.Serialize(cfgs,
-                new JsonSerializerOptions
+            var file = new ProjectConfigFile();
+            foreach (var p in _projects)
+            {
+                file.Projects.Add(new ProjectConfig
                 {
-                    WriteIndented = false,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                }));
+                    Path = p.FolderPath,
+                    GroupByPrefix = p.GroupByPrefix,
+                    Extra = p.ConfigExtra
+                });
+            }
+            foreach (var e in _unknownRootItems)
+                file.UnknownRootItems.Add(e);
+
+            File.WriteAllText(_configPath, ProjectConfigStore.Serialize(file));
         }
         catch { /* best-effort */ }
     }
@@ -317,7 +274,8 @@ public partial class MainWindow : Window
         SearchInput.Focus();
     }
 
-    private void AddProject(string folderPath, bool groupByPrefix)
+    private void AddProject(string folderPath, bool groupByPrefix,
+        Dictionary<string, JsonElement>? configExtra = null)
     {
         if (_projects.Any(p => string.Equals(p.FolderPath, folderPath, StringComparison.OrdinalIgnoreCase)))
             return;
@@ -325,7 +283,8 @@ public partial class MainWindow : Window
         var pt = new ProjectTab(folderPath, (text, tip) =>
             Dispatcher.Invoke(() => SetStatus(text, tip)))
         {
-            GroupByPrefix = groupByPrefix
+            GroupByPrefix = groupByPrefix,
+            ConfigExtra = configExtra
         };
         _projects.Add(pt);
 
@@ -384,6 +343,13 @@ internal sealed class ProjectTab : IDisposable
     public string FolderPath { get; }
     public Grid Root { get; }
     public string? CurrentFile => _currentFile;
+
+    /// <summary>
+    /// Unknown JSON properties that were on this project's entry in
+    /// projects.json when we loaded it. Held verbatim so we can round-trip
+    /// them back to disk on save (forward-compat — see ProjectConfigStore).
+    /// </summary>
+    public Dictionary<string, JsonElement>? ConfigExtra { get; set; }
 
     private bool _groupByPrefix = true;
     public bool GroupByPrefix
