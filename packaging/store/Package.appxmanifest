@@ -34,7 +34,7 @@
   <Identity
       Name="__PARTNER_CENTER_IDENTITY_NAME__"
       Publisher="__PARTNER_CENTER_PUBLISHER_ID__"
-      Version="0.1.3.0"
+      Version="0.1.3.1"
       ProcessorArchitecture="x64" />
 
   <Properties>

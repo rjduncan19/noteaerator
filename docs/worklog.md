@@ -7,6 +7,37 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-05-24 — v0.1.3.1 bug-fix release
+
+- **code**: fixed issue [#5](https://github.com/rjduncan19/noteaerator/issues/5)
+  — AGENTS.md was no longer at the bottom of the file list after the
+  v0.1.3 prefix-grouping rewrite. Added an "AGENTS.md always last"
+  pre-stage to `SortedChildren` in `PrefixGrouping`, and the same
+  rule to `Flat` (no-grouping mode). Other sort behavior preserved:
+  numeric prefixes still come first, the rest stay alphabetical.
+  _artifacts_: `POC/Noteaerator.Core/PrefixGrouping.cs`,
+  `POC/Noteaerator.Tests/PrefixGroupingTests.cs`
+- **code**: fixed issue [#4](https://github.com/rjduncan19/noteaerator/issues/4)
+  — extracted `projects.json` parse/serialize logic into a testable
+  `Noteaerator.Core.ProjectConfigStore`. The reader now (a) keeps
+  backwards compat with the legacy string-array and current object
+  forms; (b) captures unknown per-project JSON properties into a
+  per-project `Extra` dict and round-trips them verbatim on save;
+  (c) preserves unknown top-level array items in `UnknownRootItems`
+  and re-emits them after the known projects; (d) never throws on
+  unrecognized shapes. Writer uses stable property order to keep
+  file diffs minimal across saves.
+  _artifacts_: `POC/Noteaerator.Core/ProjectConfigStore.cs`,
+  `POC/Noteaerator.Tests/ProjectConfigStoreTests.cs`,
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **doc**: made the Microsoft Store install path prominent in
+  GitHub-facing docs (`README.md` + `INSTALL.md`).
+- **code**: bumped Store package version `0.1.3.0` → `0.1.3.1` in
+  `packaging/store/Package.appxmanifest`, rewrote
+  `packaging/store/listing/whats-new.md` for the patch, and added
+  `packaging/store/UPDATE-v0.1.3.1.md` with the manual Partner Center
+  ritual. All 80 Core tests still pass; WPF app builds cleanly.
+
 ## 2026-05-23 — Prefix-group UX polish + naming guidance
 
 - **code**: clicking the *label* of a synthetic folder row now jumps to
