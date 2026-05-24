@@ -238,4 +238,55 @@ public sealed class PrefixGroupingTests
         Assert.StartsWith("anthropic", anthroFolder!.Display);
         Assert.Equal(3, anthroFolder.FileCountInSubtree);
     }
+
+    // ---------------- Issue #5: AGENTS.md always last ----------------
+
+    [Fact]
+    public void Grouped_AGENTS_md_sorts_after_all_other_files_at_root()
+    {
+        var rows = Flatten("AGENTS", "README", "notes", "01-intro");
+        // Expected order:
+        //   01-intro (numeric prefix → first)
+        //   notes    (alphabetical, case-insensitive)
+        //   README
+        //   AGENTS   (special-cased to bottom)
+        Assert.Equal(4, rows.Count);
+        Assert.Equal("01 intro", rows[0].Display);
+        Assert.Equal("notes", rows[1].Display);
+        Assert.Equal("README", rows[2].Display);
+        Assert.Equal("AGENTS", rows[3].Display);
+    }
+
+    [Fact]
+    public void Grouped_AGENTS_md_sorts_last_within_its_parent_group()
+    {
+        // A literal AGENTS.md file nested inside a folder (real subdir, not
+        // a synthetic prefix group) would similarly be pushed to the bottom
+        // of its siblings. The prefix grouper doesn't traverse subdirs, but
+        // simulate the situation by hand-building a tree where one child
+        // node's file basename is AGENTS.md.
+        var paths = Paths("AGENTS", "notes", "readme").ToList();
+        var tree = PrefixGrouping.BuildTree(paths);
+        var rows = PrefixGrouping.Flatten(tree).ToList();
+        Assert.Equal(new[] { "notes", "readme", "AGENTS" },
+                     rows.Select(r => r.Display));
+    }
+
+    [Fact]
+    public void Grouped_special_case_matches_only_AGENTS_md_not_other_agents_files()
+    {
+        // A file like "agents-intro.md" should NOT be sort-pinned to the
+        // bottom — only literal AGENTS.md gets the treatment.
+        var rows = Flatten("agents-intro", "README");
+        Assert.Equal("agents-intro", rows[0].Display);
+        Assert.Equal("README", rows[1].Display);
+    }
+
+    [Fact]
+    public void Flat_pushes_AGENTS_md_to_the_bottom()
+    {
+        var rows = PrefixGrouping.Flat(Paths("z", "AGENTS", "a")).ToList();
+        Assert.Equal(new[] { "a.md", "z.md", "AGENTS.md" },
+                     rows.Select(r => r.Display));
+    }
 }

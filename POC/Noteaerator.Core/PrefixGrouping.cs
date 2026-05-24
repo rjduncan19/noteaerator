@@ -248,11 +248,21 @@ public static class PrefixGrouping
     /// <summary>
     /// Flat ordering — used when grouping is OFF. Mirrors today's behavior:
     /// alphabetical by filename (case-insensitive), display = basename.
+    /// Special case: AGENTS.md is always pushed to the bottom of the list
+    /// (issue #5).
     /// </summary>
     public static IEnumerable<FileListRow> Flat(IEnumerable<string> filePaths)
     {
-        foreach (var p in filePaths.OrderBy(System.IO.Path.GetFileName,
-                                            System.StringComparer.OrdinalIgnoreCase))
+        bool IsAgents(string p) => string.Equals(
+            System.IO.Path.GetFileName(p), "AGENTS.md",
+            System.StringComparison.OrdinalIgnoreCase);
+
+        var ordered = filePaths
+            .OrderBy(IsAgents)                                // false (0) before true (1)
+            .ThenBy(System.IO.Path.GetFileName,
+                    System.StringComparer.OrdinalIgnoreCase);
+
+        foreach (var p in ordered)
         {
             yield return new FileListRow
             {
@@ -398,11 +408,29 @@ public static class PrefixGrouping
 
     private static IEnumerable<PrefixNode> SortedChildren(PrefixNode parent)
     {
-        // Sort by (numeric sort key if present, then token) so 20-foo files come
-        // before 30-bar files inside the same parent.
+        // Sort order within a parent:
+        //   1. AGENTS.md is always last (special-case per issue #5: the file
+        //      is operating instructions for AI agents and is read often by
+        //      tools but rarely by humans; users want it out of the way).
+        //   2. Numeric sort keys (e.g. "20-foo" before "30-bar") come first.
+        //   3. Everything else alphabetical, case-insensitive.
         return parent.Children.Values
-            .OrderBy(c => SortRank(c))
+            .OrderBy(c => IsAgentsFile(c) ? 1 : 0)
+            .ThenBy(c => SortRank(c))
             .ThenBy(c => c.Token, System.StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// True if the node represents a file literally named AGENTS.md
+    /// (case-insensitive). Group/folder nodes return false even if the token
+    /// happens to be "agents" — only an actual AGENTS.md file gets the
+    /// sort-to-bottom treatment.
+    /// </summary>
+    internal static bool IsAgentsFile(PrefixNode node)
+    {
+        if (!node.HasFile || node.FilePath is null) return false;
+        var name = System.IO.Path.GetFileName(node.FilePath);
+        return string.Equals(name, "AGENTS.md", System.StringComparison.OrdinalIgnoreCase);
     }
 
     private static int SortRank(PrefixNode node)
