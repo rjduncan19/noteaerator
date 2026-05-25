@@ -1,4 +1,4 @@
-# Update Note Aerator to v0.1.3.1 on the Microsoft Store
+# Update Note Aerator to v0.1.4 on the Microsoft Store
 
 Patch release covering three GitHub issues. Same Partner Center ritual as
 v0.1.3 — the only differences are the bundle filename, the SHA256, and
@@ -45,11 +45,11 @@ You should see:
 
 | File                                | Size    | Notes                  |
 | ----------------------------------- | ------- | ---------------------- |
-| `NoteAerator-0.1.3.1.msixbundle`    | 68.8 MB | **upload this**        |
-| `NoteAerator-0.1.3.1-x64.msix`      | 68.8 MB | bundled — don't upload |
+| `NoteAerator-0.1.4.0.msixbundle`    | 68.8 MB | **upload this**        |
+| `NoteAerator-0.1.4.0-x64.msix`      | 68.8 MB | bundled — don't upload |
 
 SHA256 of the bundle (for your records):
-`881FD32A9E392A2BEBD5552D77EDDF4131F816291CE1817817EC0A6100481A6C`
+`927AD5531E4BA89DD8FC31361829774C337D65AA7C3CEB49BCC89F4467FF5058`
 
 ---
 
@@ -73,11 +73,11 @@ two sections below need changes.**
 [🌐 Open Packages section](https://partner.microsoft.com/dashboard/products/9N5DTC0FZP7M/packages)
 
 1. Remove the existing v0.1.3 `.msixbundle` (X next to it).
-2. Drag `NoteAerator-0.1.3.1.msixbundle` from the dist folder (Step 1)
+2. Drag `NoteAerator-0.1.4.0.msixbundle` from the dist folder (Step 1)
    onto the upload zone.
 3. Wait 10-60 seconds for Partner Center to validate. The architecture
    should show `x64`, identity `DuncanSolutions.NoteAerator`, version
-   `0.1.3.1`.
+   `0.1.4.0`.
 4. Click **Save**.
 
 ---
@@ -91,7 +91,7 @@ text (already formatted for the field — no Markdown syntax that the
 field can't render):
 
 ```text
-Release 0.1.3.1 — bug-fix patch:
+Release 0.1.4.0 — bug-fix patch:
 
 - AGENTS.md no longer clutters the top of the file list. It is now
   always sorted to the bottom of the project (issue #5). Files with
@@ -137,7 +137,7 @@ auto-update — they don't need to do anything.
 
 | Symptom                                              | Fix                                                                                                  |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `Version must be greater than the highest published` | The bundle in dist is from an older build. Re-run `packaging\store\build-msix.ps1` after confirming `Package.appxmanifest` says `Version="0.1.3.1"`. |
+| `Version must be greater than the highest published` | The bundle in dist is from an older build. Re-run `packaging\store\build-msix.ps1` after confirming `Package.appxmanifest` says `Version="0.1.4.0"`. |
 | `Package identity does not match the product`        | The publisher / identity in the manifest was wrong when the bundle was built. Re-run the build script — it injects the right values. |
 | `A submission is in progress`                        | Open the [Submissions page](https://partner.microsoft.com/dashboard/products/9N5DTC0FZP7M/submissions); either continue the in-progress draft or cancel it and start fresh. |
 | Bundle validation hangs                              | Refresh the Packages page. Validation runs async on Microsoft's side and the UI sometimes doesn't update without a reload. |

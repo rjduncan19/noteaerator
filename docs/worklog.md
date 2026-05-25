@@ -7,7 +7,16 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
-## 2026-05-24 — v0.1.3.1 bug-fix release
+## 2026-05-24 — v0.1.4 bug-fix release
+
+- **meta**: cut as v0.1.3.1 first, but the Microsoft Store rejected the
+  package — "Apps are not allowed to have a Version with a revision
+  number other than zero specified in the app manifest." Renamed the
+  entire release to v0.1.4 (manifest 0.1.4.0; UPDATE doc, whats-new,
+  tag, and GitHub Release all renamed); the v0.1.3.1 tag and Release
+  were deleted on the remote before re-cutting.
+  _artifacts_: `packaging/store/Package.appxmanifest`,
+  `packaging/store/UPDATE-v0.1.4.md`
 
 - **code**: fixed issue [#6](https://github.com/rjduncan19/noteaerator/issues/6)
   — silent file drop when two filenames in the same folder shared

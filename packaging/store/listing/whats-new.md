@@ -1,4 +1,4 @@
-Release 0.1.3.1 — bug-fix patch:
+Release 0.1.4 — bug-fix patch:
 
 - **No more silently missing files.** When two filenames in the same
   folder shared their first three `-`-separated tokens (for example
