@@ -45,14 +45,11 @@ You should see:
 
 | File                                | Size    | Notes                  |
 | ----------------------------------- | ------- | ---------------------- |
-| `NoteAerator-0.1.3.1.msixbundle`    | ~69 MB  | **upload this**        |
-| `NoteAerator-0.1.3.1-x64.msix`      | ~69 MB  | bundled — don't upload |
+| `NoteAerator-0.1.3.1.msixbundle`    | 68.8 MB | **upload this**        |
+| `NoteAerator-0.1.3.1-x64.msix`      | 68.8 MB | bundled — don't upload |
 
-Capture the bundle's SHA256 after the build for your records:
-
-```powershell
-Get-FileHash .\packaging\store\dist\NoteAerator-0.1.3.1.msixbundle -Algorithm SHA256
-```
+SHA256 of the bundle (for your records):
+`881FD32A9E392A2BEBD5552D77EDDF4131F816291CE1817817EC0A6100481A6C`
 
 ---
 
