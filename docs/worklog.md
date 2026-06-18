@@ -7,6 +7,16 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-06-18 — v0.2.0 release build and Store submission prep
+
+- **meta**: merged `feature/grouping-subdir-help-hide` into `main` (fast-forward).
+- **build**: rebuilt v0.2.0.0 MSIX bundle (x64 + arm64, 133.5 MB) from merged
+  main. Updated `UPDATE-v0.2.0.md` with actual SHA256
+  `0827CB1B305F152EADAAD8B3B36FAC16917015ED46295FE0FD72E3C076DE6551`.
+  _artifacts_: `packaging/store/dist/NoteAerator-0.2.0.0.msixbundle`,
+  `packaging/store/UPDATE-v0.2.0.md`
+- **verify**: all 101 tests pass; manifest placeholders restored cleanly.
+
 ## 2026-06-17 — Sub-directory view, help button, hide feature
 
 Branched from `main` (which already shipped the #6 prefix-grouping fix). Ported
