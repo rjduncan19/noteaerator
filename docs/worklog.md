@@ -43,6 +43,13 @@ three further features onto the current row-based file pane.
   round-trip, forward-compat). _artifacts_: `POC/Noteaerator.Tests/*`
 - **verify**: `dotnet build` clean; 101 tests pass (was 84). Launched the app —
   recursive Show-folders mode and the renderer verified via screenshot.
+- **meta**: built the v0.2.0.0 Store MSIX bundle for **both x64 and arm64**
+  (self-contained, ~133 MB bundle) via `packaging/store/build-msix.ps1
+  -IncludeArm64`, temporarily injecting the real manifest identity and
+  restoring the placeholders afterward. Wrote `packaging/store/UPDATE-v0.2.0.md`
+  (Partner Center walkthrough) and refreshed `listing/whats-new.md`.
+  _artifacts_: `packaging/store/UPDATE-v0.2.0.md`,
+  `packaging/store/listing/whats-new.md`
 
 ## 2026-05-24 — v0.1.4 bug-fix release
 

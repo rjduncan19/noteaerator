@@ -1,17 +1,13 @@
-Release 0.1.4 — bug-fix patch:
+Release 0.2.0 — new features:
 
-- **No more silently missing files.** When two filenames in the same
-  folder shared their first three `-`-separated tokens (for example
-  `71-giac-ab-post-draft.md` and `72-giac-ab-post-draft-v2-with-feedback.md`),
-  the second file used to vanish from the project file list. The
-  prefix-grouping engine now extends past its depth cap just enough to
-  keep every file reachable (issue #6).
-- **AGENTS.md no longer clutters the top of the file list.** It is
-  now always sorted to the bottom of the project (issue #5). Files
-  with a numeric prefix like `30-foo.md` keep coming first, and the
-  rest stay alphabetical in the middle.
-- **projects.json is forward-compatible.** Unknown properties added
-  by a future version are now read tolerantly and round-tripped on
-  save instead of being silently dropped, so editing your project
-  list in an older build can no longer corrupt newer-format data
-  (issue #4).
+- **Show folders.** A new per-project view lists a folder's own files
+  flat and shows its sub-directories as expandable chevrons, to any
+  depth, with a file count on each folder. Right-click a project tab to
+  switch between "Show folders" and "Group by prefix".
+- **Hide files and folders.** Right-click any file (or a sub-folder in
+  Show folders mode) and choose Hide to declutter the list. A "Show
+  hidden files" toggle brings them back, shown dimmed, where you can
+  unhide them. Your choices are remembered between sessions.
+- **Help button.** A new info button in the toolbar opens the project's
+  GitHub page for docs and issue reporting.
+- **Now ships for both Intel (x64) and ARM (arm64) PCs.**
