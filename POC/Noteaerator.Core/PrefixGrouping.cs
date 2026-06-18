@@ -115,8 +115,27 @@ public sealed class FileListRow
     /// <summary>Tooltip / full path; null for synthetic folder rows.</summary>
     public string? FilePath { get; init; }
 
+    /// <summary>
+    /// Absolute directory path for sub-directory folder rows (the "Show
+    /// folders" view mode). Null for file rows and for synthetic prefix-group
+    /// rows. Lets the UI toggle a real folder's expand state and hide it.
+    /// </summary>
+    public string? DirPath { get; init; }
+
+    /// <summary>
+    /// True when this row is a user-hidden file or folder being shown only
+    /// because "Show hidden files" is on. The UI dims and italicizes it.
+    /// Mutable so the host can mark rows after the Core builders construct
+    /// them (rows are rebuilt on every populate, so no change notification is
+    /// needed).
+    /// </summary>
+    public bool IsHidden { get; set; }
+
     /// <summary>True if clicking this row should open a file.</summary>
     public bool IsFile => FilePath != null;
+
+    /// <summary>True when this row represents a real sub-directory folder.</summary>
+    public bool IsFolder => DirPath != null;
 
     /// <summary>True if this row has visible children (chevron should render).</summary>
     public bool HasChildren { get; init; }

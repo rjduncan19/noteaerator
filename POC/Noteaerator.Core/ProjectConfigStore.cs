@@ -43,6 +43,21 @@ public sealed class ProjectConfig
     public bool GroupByPrefix { get; set; } = true;
 
     /// <summary>
+    /// When true, the file pane shows a flat listing of the folder's own .md
+    /// files plus its sub-directories as expandable chevrons (recursively),
+    /// instead of prefix grouping. Mutually exclusive with
+    /// <see cref="GroupByPrefix"/> in the UI. Defaults to false.
+    /// </summary>
+    public bool ShowFolders { get; set; }
+
+    /// <summary>
+    /// Project-relative paths (files or sub-folders) the user has hidden from
+    /// the file pane. Stored relative to <see cref="Path"/> so they survive the
+    /// project folder being moved. Empty when nothing is hidden.
+    /// </summary>
+    public List<string> Hidden { get; set; } = new();
+
+    /// <summary>
     /// Unknown JSON properties found on this project's object on load.
     /// Preserved on save (with their original key names and JSON values).
     /// </summary>
@@ -71,6 +86,8 @@ public static class ProjectConfigStore
 {
     private const string KeyPath = "path";
     private const string KeyGroupByPrefix = "groupByPrefix";
+    private const string KeyShowFolders = "showFolders";
+    private const string KeyHidden = "hidden";
 
     /// <summary>
     /// Parse a projects.json payload. Never throws on unrecognized shapes;
@@ -142,6 +159,30 @@ public static class ProjectConfigStore
                     cfg.GroupByPrefix = prop.Value.GetBoolean();
                 }
             }
+            else if (string.Equals(prop.Name, KeyShowFolders,
+                         System.StringComparison.OrdinalIgnoreCase))
+            {
+                if (prop.Value.ValueKind == JsonValueKind.True
+                    || prop.Value.ValueKind == JsonValueKind.False)
+                {
+                    cfg.ShowFolders = prop.Value.GetBoolean();
+                }
+            }
+            else if (string.Equals(prop.Name, KeyHidden,
+                         System.StringComparison.OrdinalIgnoreCase))
+            {
+                if (prop.Value.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in prop.Value.EnumerateArray())
+                    {
+                        if (item.ValueKind == JsonValueKind.String)
+                        {
+                            var s = item.GetString();
+                            if (!string.IsNullOrEmpty(s)) cfg.Hidden.Add(s);
+                        }
+                    }
+                }
+            }
             else
             {
                 cfg.Extra ??= new Dictionary<string, JsonElement>();
@@ -180,6 +221,17 @@ public static class ProjectConfigStore
         w.WriteStartObject();
         w.WriteString(KeyPath, cfg.Path);
         w.WriteBoolean(KeyGroupByPrefix, cfg.GroupByPrefix);
+        // Only emit showFolders when enabled, and hidden when non-empty, so
+        // the common case keeps the same minimal diff as before these fields
+        // existed (and older files don't suddenly grow new keys on save).
+        if (cfg.ShowFolders)
+            w.WriteBoolean(KeyShowFolders, true);
+        if (cfg.Hidden.Count > 0)
+        {
+            w.WriteStartArray(KeyHidden);
+            foreach (var h in cfg.Hidden) w.WriteStringValue(h);
+            w.WriteEndArray();
+        }
         if (cfg.Extra != null)
         {
             foreach (var kv in cfg.Extra)
@@ -187,14 +239,17 @@ public static class ProjectConfigStore
                 // Guard against a future version's writer accidentally
                 // duplicating a known key in Extra. (Parser doesn't put
                 // known keys in Extra, but a hand-edited file could.)
-                if (string.Equals(kv.Key, KeyPath,
-                        System.StringComparison.OrdinalIgnoreCase)) continue;
-                if (string.Equals(kv.Key, KeyGroupByPrefix,
-                        System.StringComparison.OrdinalIgnoreCase)) continue;
+                if (IsKnownKey(kv.Key)) continue;
                 w.WritePropertyName(kv.Key);
                 kv.Value.WriteTo(w);
             }
         }
         w.WriteEndObject();
     }
+
+    private static bool IsKnownKey(string key)
+        => string.Equals(key, KeyPath, System.StringComparison.OrdinalIgnoreCase)
+        || string.Equals(key, KeyGroupByPrefix, System.StringComparison.OrdinalIgnoreCase)
+        || string.Equals(key, KeyShowFolders, System.StringComparison.OrdinalIgnoreCase)
+        || string.Equals(key, KeyHidden, System.StringComparison.OrdinalIgnoreCase);
 }

@@ -7,6 +7,43 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-06-17 — Sub-directory view, help button, hide feature
+
+Branched from `main` (which already shipped the #6 prefix-grouping fix). Ported
+three further features onto the current row-based file pane.
+
+- **decision**: a parallel local branch had reimplemented prefix grouping,
+  config, and store packaging differently (and on a stale base). Discarded that
+  approach and re-applied only the genuinely new features on top of `main` so we
+  keep the canonical release history and the newer architecture.
+- **code**: added a "Show folders" view mode — the project's own `.md` files
+  list flat at the top, sub-directories appear as expandable chevron rows
+  (recursive, any depth, with `(N)` file counts), and the top-level `archive`
+  folder is skipped. Mutually exclusive with "Group by prefix". New Core
+  `SubDirListing` builds the `FileListRow`s so both modes share one ListBox.
+  _artifacts_: `POC/Noteaerator.Core/SubDirListing.cs`,
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **code**: added a hide feature — right-click any file (or sub-directory folder
+  in Show-folders mode) to Hide it; a per-tab "Show hidden files" toggle
+  (default off) reveals hidden items rendered dimmed + italic, where they can be
+  Unhidden. Hidden paths are stored project-relative.
+  _artifacts_: `POC/Noteaerator/MainWindow.xaml.cs`,
+  `POC/Noteaerator.Core/PrefixGrouping.cs`
+- **code**: persisted `showFolders` (bool) and `hidden` (string[]) per project
+  via `ProjectConfigStore`, following its forward/backward-compatible design
+  (omitted when unused; unknown keys still round-trip via `Extra`).
+  _artifacts_: `POC/Noteaerator.Core/ProjectConfigStore.cs`
+- **code**: added a Help/About button (ℹ) to the toolbar that opens the GitHub
+  project page. _artifacts_: `POC/Noteaerator/MainWindow.xaml`,
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **test**: added `SubDirListingTests` (11 cases: flat top level, collapsed and
+  expanded folders, multi-level nesting, empty-folder omission, archive skip,
+  hidden filtering/marking, AGENTS.md ordering) and 8 `ProjectConfigStore`
+  cases for `showFolders`/`hidden` (defaults, parse, serialize omission,
+  round-trip, forward-compat). _artifacts_: `POC/Noteaerator.Tests/*`
+- **verify**: `dotnet build` clean; 101 tests pass (was 84). Launched the app —
+  recursive Show-folders mode and the renderer verified via screenshot.
+
 ## 2026-05-24 — v0.1.4 bug-fix release
 
 - **meta**: cut as v0.1.3.1 first, but the Microsoft Store rejected the

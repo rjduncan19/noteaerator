@@ -47,6 +47,16 @@
                             ToolTip="Search (Ctrl+F)"
                             Click="OnSearchButtonClick"/>
 
+                    <!-- Help / About button (links to the GitHub project) -->
+                    <Button x:Name="HelpButton"
+                            DockPanel.Dock="Right"
+                            Content="&#x2139;"
+                            FontSize="16"
+                            Padding="8,4"
+                            Margin="0,0,8,0"
+                            ToolTip="Help &amp; About — open the project on GitHub"
+                            Click="OnHelpButtonClick"/>
+
                     <!-- Status (right of buttons, left of search) -->
                     <TextBlock x:Name="StatusText"
                                DockPanel.Dock="Right"

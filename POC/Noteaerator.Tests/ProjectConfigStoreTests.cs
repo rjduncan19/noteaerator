@@ -167,4 +167,93 @@ public sealed class ProjectConfigStoreTests
             "[{\"path\":\"C:/x\",\"groupByPrefix\":true,\"custom\":1}]",
             output);
     }
+
+    // ---------------- showFolders + hidden (view mode + hide feature) -------
+
+    [Fact]
+    public void ShowFolders_defaults_false_when_absent()
+    {
+        var file = ProjectConfigStore.Parse("[{\"path\":\"C:/a\"}]");
+        Assert.False(file.Projects[0].ShowFolders);
+    }
+
+    [Fact]
+    public void Parses_showFolders_and_hidden()
+    {
+        var file = ProjectConfigStore.Parse(
+            "[{\"path\":\"C:/a\",\"groupByPrefix\":false,\"showFolders\":true," +
+            "\"hidden\":[\"secret.md\",\"drafts\"]}]");
+        var cfg = file.Projects[0];
+        Assert.True(cfg.ShowFolders);
+        Assert.Equal(2, cfg.Hidden.Count);
+        Assert.Contains("secret.md", cfg.Hidden);
+        Assert.Contains("drafts", cfg.Hidden);
+    }
+
+    [Fact]
+    public void Hidden_defaults_empty_when_absent()
+    {
+        var file = ProjectConfigStore.Parse("[{\"path\":\"C:/a\"}]");
+        Assert.Empty(file.Projects[0].Hidden);
+    }
+
+    [Fact]
+    public void Serialize_omits_showFolders_when_false_and_hidden_when_empty()
+    {
+        // Backward compat: a project with neither feature in use serializes
+        // exactly like it did before these fields existed.
+        var file = new ProjectConfigFile();
+        file.Projects.Add(new ProjectConfig { Path = "C:/x", GroupByPrefix = true });
+        var output = ProjectConfigStore.Serialize(file);
+        Assert.Equal("[{\"path\":\"C:/x\",\"groupByPrefix\":true}]", output);
+    }
+
+    [Fact]
+    public void Serialize_emits_showFolders_and_hidden_when_set()
+    {
+        var file = new ProjectConfigFile();
+        file.Projects.Add(new ProjectConfig
+        {
+            Path = "C:/x",
+            GroupByPrefix = false,
+            ShowFolders = true,
+            Hidden = new List<string> { "a.md", "sub" }
+        });
+        var output = ProjectConfigStore.Serialize(file);
+        Assert.Equal(
+            "[{\"path\":\"C:/x\",\"groupByPrefix\":false,\"showFolders\":true," +
+            "\"hidden\":[\"a.md\",\"sub\"]}]",
+            output);
+    }
+
+    [Fact]
+    public void ShowFolders_and_hidden_round_trip()
+    {
+        var file = new ProjectConfigFile();
+        file.Projects.Add(new ProjectConfig
+        {
+            Path = "C:/x",
+            GroupByPrefix = false,
+            ShowFolders = true,
+            Hidden = new List<string> { "secret.md", "private/notes.md" }
+        });
+        var output = ProjectConfigStore.Serialize(file);
+        var reparsed = ProjectConfigStore.Parse(output).Projects[0];
+        Assert.True(reparsed.ShowFolders);
+        Assert.Equal(new[] { "secret.md", "private/notes.md" }, reparsed.Hidden);
+    }
+
+    [Fact]
+    public void Unknown_keys_alongside_showFolders_still_round_trip()
+    {
+        // Forward compat: a future build's extra key survives a save by an
+        // older build that also understands showFolders/hidden.
+        var input = "[{\"path\":\"C:/a\",\"groupByPrefix\":true,\"showFolders\":true," +
+                    "\"futureKey\":{\"x\":1}}]";
+        var output = ProjectConfigStore.Serialize(ProjectConfigStore.Parse(input));
+        var reparsed = ProjectConfigStore.Parse(output).Projects[0];
+        Assert.True(reparsed.ShowFolders);
+        Assert.NotNull(reparsed.Extra);
+        Assert.True(reparsed.Extra!.ContainsKey("futureKey"));
+    }
 }

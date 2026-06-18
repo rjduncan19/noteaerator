@@ -65,7 +65,8 @@ public partial class MainWindow : Window
                 foreach (var cfg in parsed.Projects)
                 {
                     if (Directory.Exists(cfg.Path))
-                        AddProject(cfg.Path, cfg.GroupByPrefix, cfg.Extra);
+                        AddProject(cfg.Path, cfg.GroupByPrefix, cfg.ShowFolders,
+                            cfg.Hidden, cfg.Extra);
                 }
             }
         }
@@ -89,6 +90,8 @@ public partial class MainWindow : Window
                 {
                     Path = p.FolderPath,
                     GroupByPrefix = p.GroupByPrefix,
+                    ShowFolders = p.ShowFolders,
+                    Hidden = p.HiddenPaths.ToList(),
                     Extra = p.ConfigExtra
                 });
             }
@@ -115,6 +118,24 @@ public partial class MainWindow : Window
     {
         if (ProjectsTabs.SelectedItem is TabItem ti && ti.Tag is ProjectTab pt)
             pt.Refresh();
+    }
+
+    private const string ProjectUrl = "https://github.com/rjduncan19/noteaerator";
+
+    private void OnHelpButtonClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = ProjectUrl,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Couldn't open the project page: {ex.Message}", ProjectUrl);
+        }
     }
 
     private void OnProjectChanged(object sender, SelectionChangedEventArgs e)
@@ -275,6 +296,7 @@ public partial class MainWindow : Window
     }
 
     private void AddProject(string folderPath, bool groupByPrefix,
+        bool showFolders = false, IEnumerable<string>? hidden = null,
         Dictionary<string, JsonElement>? configExtra = null)
     {
         if (_projects.Any(p => string.Equals(p.FolderPath, folderPath, StringComparison.OrdinalIgnoreCase)))
@@ -283,9 +305,17 @@ public partial class MainWindow : Window
         var pt = new ProjectTab(folderPath, (text, tip) =>
             Dispatcher.Invoke(() => SetStatus(text, tip)))
         {
-            GroupByPrefix = groupByPrefix,
             ConfigExtra = configExtra
         };
+        pt.StateChanged = SaveProjects;
+        // Seed hidden paths before applying the view mode so the first populate
+        // reflects them. GroupByPrefix and ShowFolders are mutually exclusive.
+        pt.InitHidden(hidden);
+        if (showFolders) pt.ShowFolders = true;
+        else pt.GroupByPrefix = groupByPrefix;
+        // Ensure the view reflects seeded hidden state even when neither mode
+        // setter triggered a repopulate (e.g. groupByPrefix already default).
+        pt.Refresh();
         _projects.Add(pt);
 
         var headerText = new TextBlock { Text = Path.GetFileName(folderPath.TrimEnd('\\', '/')) };
@@ -299,7 +329,8 @@ public partial class MainWindow : Window
         };
 
         // Right-click on a project tab:
-        //   * Group by prefix (checkable, default ON) — toggles per-project.
+        //   * Group by prefix / Show folders (mutually exclusive view modes).
+        //   * Show hidden files (default OFF).
         //   * Remove project from list.
         var menu = new ContextMenu();
 
@@ -310,12 +341,44 @@ public partial class MainWindow : Window
             IsChecked = pt.GroupByPrefix,
             ToolTip = "Group files that share a leading dash-separated prefix (e.g. corp-orcl, corp-orcl-thomas)."
         };
+        var foldersItem = new MenuItem
+        {
+            Header = "Show folders",
+            IsCheckable = true,
+            IsChecked = pt.ShowFolders,
+            ToolTip = "List this folder's files flat and show sub-directories as expandable chevrons."
+        };
         groupItem.Click += (_, _) =>
         {
+            // Mutually exclusive: turning grouping on turns folders off.
             pt.GroupByPrefix = groupItem.IsChecked;
+            if (groupItem.IsChecked) pt.ShowFolders = false;
+            groupItem.IsChecked = pt.GroupByPrefix;
+            foldersItem.IsChecked = pt.ShowFolders;
+            SaveProjects();
+        };
+        foldersItem.Click += (_, _) =>
+        {
+            pt.ShowFolders = foldersItem.IsChecked;
+            if (foldersItem.IsChecked) pt.GroupByPrefix = false;
+            foldersItem.IsChecked = pt.ShowFolders;
+            groupItem.IsChecked = pt.GroupByPrefix;
             SaveProjects();
         };
         menu.Items.Add(groupItem);
+        menu.Items.Add(foldersItem);
+
+        menu.Items.Add(new Separator());
+
+        var showHiddenItem = new MenuItem
+        {
+            Header = "Show hidden files",
+            IsCheckable = true,
+            IsChecked = pt.ShowHidden,
+            ToolTip = "Reveal files and folders you've hidden (shown dimmed). Off by default."
+        };
+        showHiddenItem.Click += (_, _) => pt.ShowHidden = showHiddenItem.IsChecked;
+        menu.Items.Add(showHiddenItem);
 
         menu.Items.Add(new Separator());
 
@@ -351,6 +414,12 @@ internal sealed class ProjectTab : IDisposable
     /// </summary>
     public Dictionary<string, JsonElement>? ConfigExtra { get; set; }
 
+    /// <summary>
+    /// Invoked when persisted per-project state changes from inside the tab
+    /// (hide/unhide, view-mode toggles) so the host can re-save projects.json.
+    /// </summary>
+    public Action? StateChanged { get; set; }
+
     private bool _groupByPrefix = true;
     public bool GroupByPrefix
     {
@@ -359,12 +428,70 @@ internal sealed class ProjectTab : IDisposable
         {
             if (_groupByPrefix == value) return;
             _groupByPrefix = value;
+            // Group-by-prefix and show-folders are mutually exclusive.
+            if (value) _showFolders = false;
             // Drop the trees so the next populate starts from a clean slate
             // when switching modes (no half-applied expand state).
             _activeTree = null;
             _archivedTree = null;
             PopulateFiles();
         }
+    }
+
+    private bool _showFolders;
+    /// <summary>
+    /// Sub-directory ("Show folders") view mode. Mutually exclusive with
+    /// <see cref="GroupByPrefix"/>.
+    /// </summary>
+    public bool ShowFolders
+    {
+        get => _showFolders;
+        set
+        {
+            if (_showFolders == value) return;
+            _showFolders = value;
+            if (value) _groupByPrefix = false;
+            _activeTree = null;
+            _archivedTree = null;
+            PopulateFiles();
+        }
+    }
+
+    // ----- Hide feature state -----
+    // Project-relative paths (files or folders) the user has hidden.
+    private readonly HashSet<string> _hidden =
+        new(StringComparer.OrdinalIgnoreCase);
+    private bool _showHidden;
+    // Absolute sub-directory paths currently expanded in "Show folders" mode
+    // (transient UI state, not persisted).
+    private readonly HashSet<string> _expandedDirs =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Project-relative hidden paths, for persistence.</summary>
+    public IReadOnlyCollection<string> HiddenPaths => _hidden;
+
+    /// <summary>When true, hidden items are shown dimmed (default off, transient).</summary>
+    public bool ShowHidden
+    {
+        get => _showHidden;
+        set
+        {
+            if (_showHidden == value) return;
+            _showHidden = value;
+            _activeTree = null;
+            _archivedTree = null;
+            PopulateFiles();
+            // Not persisted — it's a transient view toggle.
+        }
+    }
+
+    /// <summary>Seed hidden paths loaded from config (call before first populate).</summary>
+    public void InitHidden(IEnumerable<string>? hidden)
+    {
+        _hidden.Clear();
+        if (hidden != null)
+            foreach (var h in hidden)
+                if (!string.IsNullOrWhiteSpace(h)) _hidden.Add(h);
     }
 
     private readonly ListBox _activeList;
@@ -598,6 +725,7 @@ internal sealed class ProjectTab : IDisposable
         chevronHit.AppendChild(chevronGlyph);
 
         var label = new FrameworkElementFactory(typeof(TextBlock));
+        label.Name = "RowLabel";
         label.SetBinding(TextBlock.TextProperty,
             new System.Windows.Data.Binding(nameof(FileListRow.Display)));
         label.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
@@ -610,18 +738,39 @@ internal sealed class ProjectTab : IDisposable
         dock.AppendChild(label);
 
         template.VisualTree = dock;
+
+        // Hidden items (shown only when "Show hidden files" is on) render
+        // dimmed and italic so they're visually distinct from normal rows.
+        var hiddenTrigger = new System.Windows.DataTrigger
+        {
+            Binding = new System.Windows.Data.Binding(nameof(FileListRow.IsHidden)),
+            Value = true
+        };
+        hiddenTrigger.Setters.Add(new Setter(TextBlock.OpacityProperty, 0.5, "RowLabel"));
+        hiddenTrigger.Setters.Add(new Setter(TextBlock.FontStyleProperty, FontStyles.Italic, "RowLabel"));
+        template.Triggers.Add(hiddenTrigger);
+
         template.Seal();
         return template;
     }
 
     private void OnChevronClick(object sender, MouseButtonEventArgs e)
     {
-        if (sender is FrameworkElement fe &&
-            fe.DataContext is FileListRow row &&
-            row.HasChildren && row.Node != null)
+        if (sender is not FrameworkElement fe || fe.DataContext is not FileListRow row)
+            return;
+
+        if (row.Node != null && row.HasChildren)
         {
+            // Prefix-group node: expand state lives on the PrefixNode.
             row.Node.IsExpanded = !row.Node.IsExpanded;
-            // We are grouping ON if we got a chevron click at all.
+            PopulateFiles();
+            e.Handled = true;
+        }
+        else if (row.DirPath != null)
+        {
+            // Sub-directory folder row: expand state is a per-tab set.
+            if (!_expandedDirs.Remove(row.DirPath))
+                _expandedDirs.Add(row.DirPath);
             PopulateFiles();
             e.Handled = true;
         }
@@ -634,23 +783,63 @@ internal sealed class ProjectTab : IDisposable
         while (dep != null && dep is not ListBoxItem) dep = VisualTreeHelper.GetParent(dep);
         if (dep is not ListBoxItem lbi || lbi.DataContext is not FileListRow row) return;
 
-        // Folder-only rows (synthetic groups) have no file to archive — bail.
-        if (!row.IsFile) { e.Handled = true; return; }
-
-        lbi.IsSelected = true;
-
         var menu = new ContextMenu();
-        var item = new MenuItem
+
+        if (row.IsFile)
         {
-            Header = isArchived ? "Restore from Archive" : "Move to Archive…"
-        };
-        var path = row.FilePath!;
-        item.Click += (_, _) =>
+            lbi.IsSelected = true;
+            var path = row.FilePath!;
+            var archiveItem = new MenuItem
+            {
+                Header = isArchived ? "Restore from Archive" : "Move to Archive…"
+            };
+            archiveItem.Click += (_, _) =>
+            {
+                if (isArchived) RestoreFile(path);
+                else            ArchiveFile(path);
+            };
+            menu.Items.Add(archiveItem);
+
+            // Hiding only applies to the active pane (the archive is separate).
+            if (!isArchived)
+            {
+                if (_showHidden && IsHiddenPath(path))
+                {
+                    var unhide = new MenuItem { Header = "Unhide" };
+                    unhide.Click += (_, _) => UnhideRelative(path);
+                    menu.Items.Add(unhide);
+                }
+                else
+                {
+                    var hide = new MenuItem { Header = "Hide" };
+                    hide.Click += (_, _) => HideRelative(path);
+                    menu.Items.Add(hide);
+                }
+            }
+        }
+        else if (row.IsFolder && !isArchived)
         {
-            if (isArchived) RestoreFile(path);
-            else            ArchiveFile(path);
-        };
-        menu.Items.Add(item);
+            // Real sub-directory folder row (Show folders mode): allow hiding
+            // the whole folder. Synthetic prefix-group rows have no DirPath and
+            // fall through to the no-op below.
+            var dir = row.DirPath!;
+            if (_showHidden && IsHiddenPath(dir))
+            {
+                var unhide = new MenuItem { Header = "Unhide folder" };
+                unhide.Click += (_, _) => UnhideRelative(dir);
+                menu.Items.Add(unhide);
+            }
+            else
+            {
+                var hide = new MenuItem { Header = "Hide folder" };
+                hide.Click += (_, _) => HideRelative(dir);
+                menu.Items.Add(hide);
+            }
+        }
+
+        // Never open an empty menu (renders as a clipped sliver).
+        if (menu.Items.Count == 0) { e.Handled = true; return; }
+
         menu.PlacementTarget = lbi;
         menu.IsOpen = true;
         e.Handled = true;
@@ -724,11 +913,61 @@ internal sealed class ProjectTab : IDisposable
 
     // ---------------- File listing + selection ----------------
 
+    /// <summary>Project-relative path used as the hidden-set key.</summary>
+    private string RelativePath(string fullPath)
+    {
+        try { return Path.GetRelativePath(FolderPath, fullPath); }
+        catch { return Path.GetFileName(fullPath); }
+    }
+
+    /// <summary>
+    /// True if <paramref name="fullPath"/> is hidden directly, or lives under a
+    /// hidden ancestor folder.
+    /// </summary>
+    private bool IsHiddenPath(string fullPath)
+    {
+        var rel = RelativePath(fullPath);
+        if (_hidden.Contains(rel)) return true;
+        var parts = rel.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        for (int i = 1; i < parts.Length; i++)
+        {
+            var ancestor = string.Join(Path.DirectorySeparatorChar, parts.Take(i));
+            if (_hidden.Contains(ancestor)) return true;
+        }
+        return false;
+    }
+
+    private void HideRelative(string fullPath)
+    {
+        _hidden.Add(RelativePath(fullPath));
+        AfterHideChange();
+    }
+
+    private void UnhideRelative(string fullPath)
+    {
+        _hidden.Remove(RelativePath(fullPath));
+        AfterHideChange();
+    }
+
+    private void AfterHideChange()
+    {
+        // Hiding changes the file set feeding prefix grouping, so reset trees.
+        _activeTree = null;
+        _archivedTree = null;
+        PopulateFiles();
+        StateChanged?.Invoke();
+    }
+
     private void PopulateFiles()
     {
         var prevFile = _currentFile;
 
-        var active = SafeEnum(FolderPath).ToList();
+        var allActive = SafeEnum(FolderPath).ToList();
+        // In prefix/flat modes, filter hidden top-level files up front (unless
+        // showing hidden). Sub-directory mode does its own hidden handling.
+        var active = _showHidden
+            ? allActive
+            : allActive.Where(f => !IsHiddenPath(f)).ToList();
         var archived = Directory.Exists(ArchiveDir)
             ? SafeEnum(ArchiveDir).ToList()
             : new List<string>();
@@ -746,7 +985,16 @@ internal sealed class ProjectTab : IDisposable
 
         List<FileListRow> activeRows;
         List<FileListRow> archivedRows;
-        if (_groupByPrefix)
+        if (_showFolders)
+        {
+            // Sub-directory view: flat top-level files + recursive folders.
+            _activeTree = null;
+            _archivedTree = null;
+            activeRows = SubDirListing.Build(
+                FolderPath, _expandedDirs, IsHiddenPath, _showHidden, ArchiveSubdir).ToList();
+            archivedRows = PrefixGrouping.Flat(archived).ToList();
+        }
+        else if (_groupByPrefix)
         {
             _activeTree = PrefixGrouping.BuildTree(active, previous: _activeTree);
             activeRows = PrefixGrouping.Flatten(_activeTree).ToList();
@@ -759,6 +1007,14 @@ internal sealed class ProjectTab : IDisposable
             _archivedTree = null;
             activeRows = PrefixGrouping.Flat(active).ToList();
             archivedRows = PrefixGrouping.Flat(archived).ToList();
+        }
+
+        // When showing hidden in prefix/flat modes, mark hidden file rows so
+        // they render dimmed. (Sub-directory mode already marks its rows.)
+        if (_showHidden && !_showFolders)
+        {
+            foreach (var r in activeRows)
+                if (r.IsFile && IsHiddenPath(r.FilePath!)) r.IsHidden = true;
         }
 
         _suppressSelChange = true;
@@ -777,7 +1033,11 @@ internal sealed class ProjectTab : IDisposable
             ? $"Archive  ({archivedFileCount})"
             : "Archive";
 
-        if (active.Count == 0 && archived.Count == 0)
+        // Empty only when there is genuinely nothing to show. In sub-directory
+        // mode there may be files nested below even when the top level is empty,
+        // so consult the produced rows rather than the top-level file count.
+        bool nothingActive = _showFolders ? activeRows.Count == 0 : active.Count == 0;
+        if (nothingActive && archived.Count == 0)
         {
             _setStatus($"No .md files in {FolderPath}", FolderPath);
             return;
