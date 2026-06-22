@@ -434,6 +434,7 @@ internal sealed class ProjectTab : IDisposable
             // when switching modes (no half-applied expand state).
             _activeTree = null;
             _archivedTree = null;
+            UpdateWatchScope();
             PopulateFiles();
         }
     }
@@ -453,6 +454,7 @@ internal sealed class ProjectTab : IDisposable
             if (value) _groupByPrefix = false;
             _activeTree = null;
             _archivedTree = null;
+            UpdateWatchScope();
             PopulateFiles();
         }
     }
@@ -625,15 +627,15 @@ internal sealed class ProjectTab : IDisposable
     private FileSystemWatcher? _archiveMdWatcher;
     private FileSystemWatcher? _archiveCommentsWatcher;
 
-    private FileSystemWatcher CreateMdWatcher() => CreateMdWatcherFor(FolderPath);
-    private FileSystemWatcher CreateCommentsWatcher() => CreateCommentsWatcherFor(FolderPath);
+    private FileSystemWatcher CreateMdWatcher() => CreateMdWatcherFor(FolderPath, recursive: _showFolders);
+    private FileSystemWatcher CreateCommentsWatcher() => CreateCommentsWatcherFor(FolderPath, recursive: _showFolders);
 
-    private FileSystemWatcher CreateMdWatcherFor(string dir)
+    private FileSystemWatcher CreateMdWatcherFor(string dir, bool recursive = false)
     {
         var w = new FileSystemWatcher(dir, "*.md")
         {
             NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
-            IncludeSubdirectories = false,
+            IncludeSubdirectories = recursive,
             InternalBufferSize = 64 * 1024,
             EnableRaisingEvents = true
         };
@@ -645,12 +647,12 @@ internal sealed class ProjectTab : IDisposable
         return w;
     }
 
-    private FileSystemWatcher CreateCommentsWatcherFor(string dir)
+    private FileSystemWatcher CreateCommentsWatcherFor(string dir, bool recursive = false)
     {
         var w = new FileSystemWatcher(dir, "*-comments.json")
         {
             NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
-            IncludeSubdirectories = false,
+            IncludeSubdirectories = recursive,
             InternalBufferSize = 64 * 1024,
             EnableRaisingEvents = true
         };
@@ -660,6 +662,30 @@ internal sealed class ProjectTab : IDisposable
         w.Renamed += (_, e) => OnSidecarChanged(this, e);
         w.Error += OnWatcherError;
         return w;
+    }
+
+    /// <summary>
+    /// Keep the project-root watchers recursive while in "Show folders" mode so
+    /// changes to files in sub-directories still auto-refresh. Archive watchers
+    /// stay non-recursive (the archive pane is always flat).
+    /// </summary>
+    private void UpdateWatchScope()
+    {
+        SetRecursive(_mdWatcher, _showFolders);
+        SetRecursive(_commentsWatcher, _showFolders);
+    }
+
+    private static void SetRecursive(FileSystemWatcher? w, bool recursive)
+    {
+        if (w == null || w.IncludeSubdirectories == recursive) return;
+        try
+        {
+            var was = w.EnableRaisingEvents;
+            w.EnableRaisingEvents = false;
+            w.IncludeSubdirectories = recursive;
+            w.EnableRaisingEvents = was;
+        }
+        catch { /* best-effort */ }
     }
 
     // If the watcher buffer overflows (common on OneDrive folders with bursty
@@ -1519,14 +1545,8 @@ internal sealed class ProjectTab : IDisposable
     private void OnMdRenamed(object sender, RenamedEventArgs e)    => HandleMdEvent(e.FullPath);
 
     private bool IsRelevantPath(string fullPath)
-    {
-        // Top-level *.md or archive/*.md only — ignore anything deeper.
-        var dir = Path.GetDirectoryName(fullPath);
-        if (dir == null) return false;
-        if (Eq(dir, FolderPath)) return true;
-        if (Eq(dir, ArchiveDir)) return true;
-        return false;
-    }
+        => WatchScope.IsRelevant(FolderPath, ArchiveDir, fullPath, _showFolders,
+            IsHiddenPath, _showHidden);
 
     private void HandleMdEvent(string changedPath)
     {

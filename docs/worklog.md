@@ -7,6 +7,31 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-06-22 — Fix auto-refresh in Show-folders mode
+
+- **bug**: after the Show-folders feature shipped, files opened from a
+  sub-directory stopped auto-refreshing on disk change — the user had to hit
+  Refresh. Root cause: the file-system watchers are non-recursive and
+  `IsRelevantPath` only accepted top-level + archive files, so nested `.md`
+  changes were neither watched nor considered relevant.
+- **code**: extracted the relevance decision into a pure, testable
+  `Core/WatchScope.IsRelevant(folder, archive, path, showFolders, isHidden,
+  showHidden)` — nested paths are relevant only in Show-folders mode, and
+  changes inside hidden folders (e.g. `node_modules`) are ignored unless "Show
+  hidden files" is on. The project-root watchers now set
+  `IncludeSubdirectories = showFolders` (toggled via `UpdateWatchScope` when the
+  view mode changes); archive watchers stay flat.
+  _artifacts_: `POC/Noteaerator.Core/WatchScope.cs`,
+  `POC/Noteaerator/MainWindow.xaml.cs`
+- **test**: added `WatchScopeTests` (21 cases: top-level/archive relevant in
+  any mode, nested relevant only with Show-folders, hidden folders excluded
+  unless showing hidden, deep nesting, sibling-prefix folders excluded,
+  trailing-separator and forward-slash tolerance, null archive). 122 tests pass
+  (was 101).
+- **verify**: confirmed via the built Core DLL + a real recursive `*.md`
+  `FileSystemWatcher` that nested `.md` creates fire and are deemed relevant,
+  while a non-recursive watcher ignores them (the old bug).
+
 ## 2026-06-17 — Sub-directory view, help button, hide feature
 
 Branched from `main` (which already shipped the #6 prefix-grouping fix). Ported
