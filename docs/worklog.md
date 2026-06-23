@@ -7,6 +7,19 @@ go on top. See `AGENTS.md` for the workflow that produces this file.
 > repository itself. It is not a feature or required convention of the
 > noteaerator product.
 
+## 2026-06-23 — v0.2.1 Store patch (auto-refresh fix)
+
+- **meta**: prepped a minor Store update on top of v0.2.0 carrying the
+  Show-folders auto-refresh fix. Built the self-contained x64 + arm64
+  `.msixbundle` v0.2.1.0 (133.5 MB) via `packaging/store/build-msix.ps1
+  -IncludeArm64 -Version 0.2.1.0`, temporarily injecting the manifest identity
+  and restoring the placeholders afterward. SHA256
+  `D3FCCC85787183C6C295083410A01FE2D26F2291C340F3F178ED4629DACC6977`.
+- **doc**: wrote `packaging/store/UPDATE-v0.2.1.md` (patch submission guide) and
+  refreshed `listing/whats-new.md` to lead with the fix.
+  _artifacts_: `packaging/store/UPDATE-v0.2.1.md`,
+  `packaging/store/listing/whats-new.md`
+
 ## 2026-06-22 — Fix auto-refresh in Show-folders mode
 
 - **bug**: after the Show-folders feature shipped, files opened from a

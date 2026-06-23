@@ -1,4 +1,11 @@
-Release 0.2.0 — new features:
+Release 0.2.1 — bug-fix patch:
+
+- **Fixed auto-refresh for files in sub-folders.** In "Show folders"
+  view, a file in a sub-folder that changed on disk used to require a
+  manual Refresh; it now updates automatically again. Changes inside
+  hidden folders are ignored unless "Show hidden files" is on.
+
+Includes everything from 0.2.0:
 
 - **Show folders.** A new per-project view lists a folder's own files
   flat and shows its sub-directories as expandable chevrons, to any
